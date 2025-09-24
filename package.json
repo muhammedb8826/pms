@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "NODE_ENV=production node server.js",
+    "start:standalone": "NODE_ENV=production node .next/standalone/server.js",
     "lint": "eslint"
   },
   "dependencies": {
