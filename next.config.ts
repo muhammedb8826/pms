@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  output: 'standalone',
+  output: 'export',
   eslint: {
     // Disable ESLint during builds in Docker
     ignoreDuringBuilds: process.env.NODE_ENV === 'production',

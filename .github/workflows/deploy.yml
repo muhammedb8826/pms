@@ -24,27 +24,9 @@ jobs:
     - name: Build Next.js app
       run: npm run build
 
-    - name: Prepare standalone bundle for deploy
-      run: |
-        rm -rf deploy
-        mkdir -p deploy/.next
-        cp -r .next/standalone deploy/
-        mkdir -p deploy/.next
-        cp -r .next/static deploy/.next/
-        if [ -d public ]; then cp -r public deploy/; fi
-
     - name: Deploy to cPanel via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: deploy/
-        server-dir: ${{ secrets.FTP_SERVER_DIR }}
-        dangerous-clean-slate: true
-        exclude: |
-          **/.git*
-          **/.DS_Store
-          cgi-bin/**
-          .well-known/**
-          tmp/**
