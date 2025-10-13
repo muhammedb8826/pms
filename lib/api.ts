@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.daminaa.org';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -359,6 +359,7 @@ export interface InventoryItem {
   medicineId: number;
   batchNumber: string;
   quantity: number;
+  unitPrice?: number;
   sellingPrice: number;
   expiryDate: string;
   supplierId?: number;

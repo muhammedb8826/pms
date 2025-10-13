@@ -40,7 +40,7 @@ export default function InventoryPage() {
                   <TableCell className="font-medium">{it.medicine?.name ?? it.medicineId}</TableCell>
                   <TableCell>{it.batchNumber}</TableCell>
                   <TableCell>{it.quantity}</TableCell>
-                  <TableCell>{Number(it.unitPrice).toFixed(2)}</TableCell>
+                  <TableCell>{it.unitPrice ? Number(it.unitPrice).toFixed(2) : '-'}</TableCell>
                   <TableCell>{Number(it.sellingPrice).toFixed(2)}</TableCell>
                   <TableCell>{it.expiryDate?.slice(0,10)}</TableCell>
                   <TableCell><Badge variant="secondary">{it.status}</Badge></TableCell>

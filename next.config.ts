@@ -1,15 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  output: 'export',
+  // Vercel handles optimization automatically, no need for standalone output
   eslint: {
-    // Disable ESLint during builds in Docker
-    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors. Only enable if needed.
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    // Disable TypeScript errors during builds in Docker
-    ignoreBuildErrors: process.env.NODE_ENV === 'production',
+    // Warning: Dangerously allow production builds to successfully complete even if
+    // your project has type errors. Only enable if needed.
+    ignoreBuildErrors: false,
   },
 };
 
