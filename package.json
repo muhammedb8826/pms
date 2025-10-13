@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "cross-env RAYON_NUM_THREADS=1 next build",
+    "build": "cross-env RAYON_NUM_THREADS=1 UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=2048 next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "eslint"
   },
