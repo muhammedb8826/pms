@@ -1,34 +1,35 @@
-name: Deploy to cPanel via FTP
+name: Deploy Next.js App to cPanel via FTP
 
 on:
   push:
     branches:
-      - main 
+      - main
 
 jobs:
-  build-and-deploy:
+  web-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.18.0' # Match your cPanel Node.js version
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.18.0
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Install dependencies
+      run: npm install
 
-      - name: Build Next.js app 
-        run: npm run build
+    - name: Build Next.js app
+      run: npm run build
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.CPANEL_DIR }}
-          # The 'local-dir' should point to the root of your built files
-          local-dir: ./ # Deploy all files from the root after build
+    - name: Deploy to cPanel via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        server-dir: ${{ secrets.CPANEL_DIR }}
+        local-dir: out/
+        protocol: ftp

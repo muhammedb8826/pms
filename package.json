@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "NODE_ENV=production node server.js",
+    "export": "next export",
+    "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
