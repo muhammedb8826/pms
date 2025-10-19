@@ -1,41 +1,34 @@
-name: Deploy Next.js to cPanel (standalone)
+name: Deploy to cPanel via FTP
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main 
 
 jobs:
-  build-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: '22' # Match your cPanel Node.js version
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm ci
 
-      - name: Build (force webpack for stability)
-        run: npx next build
+      - name: Build Next.js app
+        run: npm run build
 
-      - name: Prepare upload bundle
-        run: |
-          mkdir -p out_upload
-          cp -r .next/standalone/* out_upload/
-          mkdir -p out_upload/.next/static
-          cp -r .next/static/* out_upload/.next/static/
-          if [ -d public ]; then cp -r public out_upload/public; fi
-
-      - name: Deploy to cPanel via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: out_upload/
-          server-dir: pms.muhdev.com/
+          server-dir: ${{ secrets.CPANEL_DIR }}
+          # The 'local-dir' should point to the root of your built files
+          local-dir: ./ # Deploy all files from the root after build
