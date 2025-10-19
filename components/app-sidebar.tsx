@@ -1,24 +1,27 @@
-"use client";
+"use client"
 
-import * as React from "react";
+import * as React from "react"
 import {
   IconCamera,
+  IconChartBar,
   IconDashboard,
+  IconDatabase,
   IconFileAi,
   IconFileDescription,
+  IconFileWord,
   IconFolder,
   IconHelp,
   IconInnerShadowTop,
-  IconListDetails,
   IconReport,
   IconSearch,
   IconSettings,
-  IconUsers,
-} from "@tabler/icons-react";
+  IconShoppingCart,
+} from "@tabler/icons-react"
 
-import { NavMain } from "@/components/nav-main";
-import { NavSecondary } from "@/components/nav-secondary";
-import { NavUser } from "@/components/nav-user";
+import { NavDocuments } from "@/components/nav-documents"
+import { NavMain } from "@/components/nav-main"
+import { NavSecondary } from "@/components/nav-secondary"
+import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -27,63 +30,34 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import { useAuth } from "@/contexts/auth-context";
+} from "@/components/ui/sidebar"
 
 const data = {
   user: {
-    name: "muhdev",
-    email: "muhdev@gmail.com",
-    avatar: "/avatars/muhdev.jpg",
+    name: "shadcn",
+    email: "m@example.com",
+    avatar: "/avatars/shadcn.jpg",
   },
-  navSections: [
+  navMain: [
     {
-      label: "Overview",
-      items: [
-        { title: "Dashboard", url: "/dashboard", icon: IconDashboard },
-        { title: "Reports", url: "/reports", icon: IconReport },
-      ],
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: IconDashboard,
     },
     {
-      label: "Catalogue",
-      items: [
-        {
-          title: "Medicines",
-          icon: IconListDetails,
-          items: [
-            { title: "List", url: "/medicines", icon: IconListDetails },
-            { title: "Categories", url: "/categories", icon: IconFolder },
-          ],
-        },
-      ],
+      title: "Inventory",
+      url: "/dashboard/inventory",
+      icon: IconFolder,
     },
     {
-      label: "Operations",
-      items: [
-        {
-          title: "Purchase",
-          icon: IconListDetails,
-          items: [
-            { title: "List", url: "/purchase-orders", icon: IconListDetails },
-            {
-              title: "New",
-              url: "/purchase-orders/create",
-              icon: IconFileDescription,
-            },
-          ],
-        },
-        {
-          title: "Sales",
-          icon: IconReport,
-          items: [
-            { title: "List", url: "/sales/list", icon: IconListDetails },
-            { title: "New", url: "/sales", icon: IconReport },
-          ],
-        },
-        { title: "Customers", url: "/customers", icon: IconUsers },
-        { title: "Suppliers", url: "/suppliers", icon: IconUsers },
-        { title: "Users", url: "/users", icon: IconUsers },
-      ],
+      title: "Sales",
+      url: "/dashboard/sales",
+      icon: IconChartBar,
+    },
+    {
+      title: "Purchases",
+      url: "/dashboard/purchases",
+      icon: IconShoppingCart,
     },
   ],
   navClouds: [
@@ -151,17 +125,26 @@ const data = {
       icon: IconSearch,
     },
   ],
-};
+  documents: [
+    {
+      name: "Data Library",
+      url: "#",
+      icon: IconDatabase,
+    },
+    {
+      name: "Reports",
+      url: "#",
+      icon: IconReport,
+    },
+    {
+      name: "Word Assistant",
+      url: "#",
+      icon: IconFileWord,
+    },
+  ],
+}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAuth();
-  
-  const userData = {
-    name: user?.name || "User",
-    email: user?.email || "user@example.com",
-    avatar: "/avatars/user.jpg",
-  };
-
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -171,21 +154,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
+              <a href="/dashboard">
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Muhdev Inc.</span>
+                <span className="text-base font-semibold">PMS</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain sections={data.navSections} />
+        <NavMain items={data.navMain} />
+        <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={userData} />
+        <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  );
+  )
 }
