@@ -4,7 +4,10 @@ import * as React from "react"
 import {
   IconChartBar,
   IconCreditCard,
+  IconCurrencyDollar,
   IconDashboard,
+  IconFile,
+  IconFilePlus,
   IconFolder,
   IconHelp,
   IconInnerShadowTop,
@@ -75,6 +78,16 @@ const data = {
       title: "Users",
       url: "/dashboard/users",
       icon: IconUsers,
+    },
+    {
+      title: "Requisition",
+      url: "/dashboard/requisition",
+      icon: IconFilePlus,
+    },
+    {
+      title: "Commissions",
+      url: "/dashboard/commissions",
+      icon: IconCurrencyDollar,
     },
   ],
   // navClouds: [
