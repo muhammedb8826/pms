@@ -15,7 +15,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22' # Match your cPanel Node.js version
+          node-version: '22.18.0' # Match your cPanel Node.js version
 
       - name: Install dependencies
         run: npm ci
