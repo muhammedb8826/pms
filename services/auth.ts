@@ -17,8 +17,24 @@ class AuthService {
       let errorMessage = 'An error occurred';
       try {
         const error = await response.json();
-        errorMessage = error.message || error.error || errorMessage;
-      } catch {}
+        const candidates: unknown[] = [
+          error?.message,
+          error?.error,
+          error?.message?.message,
+          error?.message?.error,
+          Array.isArray(error?.message) ? error.message[0] : undefined,
+          error?.data?.message,
+          error?.detail,
+        ];
+        const firstString = candidates.find((c) => typeof c === 'string') as string | undefined;
+        if (firstString) {
+          errorMessage = firstString;
+        } else {
+          errorMessage = JSON.stringify(error);
+        }
+      } catch {
+        errorMessage = `${response.status} ${response.statusText}`;
+      }
       throw new Error(errorMessage);
     }
 
