@@ -13,6 +13,12 @@ export default function Home() {
             >
               Login
             </Link>
+            <Link
+              href="/dashboard"
+              className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+            >
+              Dashboard
+            </Link>
           </nav>
         </div>
       </header>
@@ -100,6 +106,16 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <footer className="w-full border-t">
+        <div className="mx-auto max-w-7xl px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <p className="text-xs text-gray-500">© {new Date().getFullYear()} PMS. All rights reserved.</p>
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span>v1.0.0</span>
+            <a href="#" className="hover:text-gray-700">Support</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
