@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { CreateUnitOfMeasureDto, PaginatedUnitOfMeasures, UnitOfMeasure, UpdateUnitOfMeasureDto } from '@/types/uom';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.daminaa.org/api/v1';
 
 class UnitOfMeasureService {
   private getAuthHeaders() {

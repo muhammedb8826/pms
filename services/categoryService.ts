@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Category, CreateCategoryDto, PaginatedCategories, UpdateCategoryDto } from '@/types/category';
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1');
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.daminaa.org/api/v1');
 
 class CategoryService {
   private getAuthHeaders() {
