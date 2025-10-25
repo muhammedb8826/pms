@@ -5,19 +5,13 @@ export default function Home() {
     <div className="min-h-screen flex flex-col font-sans">
       <header className="w-full border-b">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
-          <div className="text-sm sm:text-base font-semibold">Pharmacy Management System</div>
+          <div className="text-sm sm:text-base font-semibold">PMS</div>
           <nav className="flex items-center gap-3">
             <Link
               href="/login"
               className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
             >
               Login
-            </Link>
-            <Link
-              href="/register"
-              className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-            >
-              Register
             </Link>
           </nav>
         </div>
