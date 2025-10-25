@@ -45,12 +45,15 @@ const data = {
       icon: IconDashboard,
     },
     {
-      title: "Catalog",
+      title: "Inventory",
       url: "#",
       icon: IconFolder,
       items: [
         { title: "Products", url: "/dashboard/inventory" },
+        { title: "Add Product", url: "/dashboard/inventory/new" },
         { title: "Categories", url: "/dashboard/categories" },
+        { title: "Manufacturers", url: "/dashboard/manufacturers" },
+        { title: "Units of Measure", url: "/dashboard/uom" },
       ],
     },
     {

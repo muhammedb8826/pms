@@ -41,6 +41,14 @@ export function useCategory(id?: string) {
   return query;
 }
 
+export function useAllCategories() {
+  return useQuery<Category[]>({
+    queryKey: ['categories', 'all'],
+    queryFn: () => categoryService.getAllCategories(),
+    staleTime: 60_000,
+  });
+}
+
 export function useCreateCategory() {
   const queryClient = useQueryClient();
   return useMutation({

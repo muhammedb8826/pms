@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { useCategory } from '@/hooks/useCategories';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function Page() {
   const [page, setPage] = useState(1);
@@ -35,8 +36,6 @@ export default function Page() {
   }, [categories.length, total, page]);
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm('Delete this category?');
-    if (!confirmed) return;
     try {
       await deleteMutation.mutateAsync(id);
       refetch();
@@ -57,18 +56,13 @@ export default function Page() {
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-4 p-4 overflow-x-hidden">
+      <div className="flex items-start justify-between gap-2 sm:items-center">
         <h1 className="text-xl font-semibold">Categories</h1>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Search..."
-            className="w-48"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <Input placeholder="Search..." className="w-full min-w-0 sm:w-48" value={search} onChange={(e) => setSearch(e.target.value)} />
           <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -78,7 +72,7 @@ export default function Page() {
             </SelectContent>
           </Select>
           <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as 'asc' | 'desc')}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full sm:w-32">
               <SelectValue placeholder="Order" />
             </SelectTrigger>
             <SelectContent>
@@ -116,8 +110,8 @@ export default function Page() {
         </DialogContent>
       </Dialog>
 
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table className="min-w-[700px]">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
@@ -154,15 +148,26 @@ export default function Page() {
                       <IconPencil />
                       Edit
                     </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(c.id)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <IconTrash />
-                      Delete
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={deleteMutation.isPending}>
+                          <IconTrash />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertHeader>
+                          <AlertDialogTitle>Delete category?</AlertDialogTitle>
+                        </AlertHeader>
+                        <AlertDesc>
+                          This action will permanently delete <span className="font-medium">{c.name}</span>. If it has associated products, deletion may fail.
+                        </AlertDesc>
+                        <AlertFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(c.id)} disabled={deleteMutation.isPending}>Delete</AlertDialogAction>
+                        </AlertFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </TableCell>
               </TableRow>
