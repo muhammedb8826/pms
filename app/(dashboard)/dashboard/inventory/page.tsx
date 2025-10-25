@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Product } from '@/types/product';
 import { useDeleteProduct, useProduct, useProducts } from '@/hooks/useProducts';
 // import { productService } from '@/services/productService';
@@ -204,22 +205,34 @@ export default function InventoryPage() {
                 <TableCell className="text-right">{Number.isFinite(Number(p.sellingPrice)) ? Number(p.sellingPrice).toFixed(2) : '-'}</TableCell>
                 <TableCell className="hidden md:table-cell">{p.status}</TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setViewId(p.id); setViewOpen(true); }}>
-                      <IconEye />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => { setEditing(p); setDialogOpen(true); }}>
-                      <IconPencil />
-                      Edit
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={deleteMutation.isPending}>
-                          <IconTrash />
-                          Delete
+                  <div className="flex justify-end gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button aria-label="View" variant="ghost" size="sm" onClick={() => { setViewId(p.id); setViewOpen(true); }}>
+                          <IconEye />
                         </Button>
-                      </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>View</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button aria-label="Edit" variant="outline" size="sm" onClick={() => { setEditing(p); setDialogOpen(true); }}>
+                          <IconPencil />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Edit</TooltipContent>
+                    </Tooltip>
+                    <AlertDialog>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertDialogTrigger asChild>
+                            <Button aria-label="Delete" variant="destructive" size="sm" disabled={deleteMutation.isPending}>
+                              <IconTrash />
+                            </Button>
+                          </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
                       <AlertDialogContent>
                         <AlertHeader>
                           <AlertDialogTitle>Delete product?</AlertDialogTitle>
@@ -298,11 +311,11 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Purchase</div>
-                    <div>{viewQuery.data.purchasePrice.toFixed(2)}</div>
+                    <div>{Number.isFinite(Number(viewQuery.data.purchasePrice)) ? Number(viewQuery.data.purchasePrice).toFixed(2) : '-'}</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Selling</div>
-                    <div>{viewQuery.data.sellingPrice.toFixed(2)}</div>
+                    <div>{Number.isFinite(Number(viewQuery.data.sellingPrice)) ? Number(viewQuery.data.sellingPrice).toFixed(2) : '-'}</div>
                   </div>
                 </div>
                 <div>

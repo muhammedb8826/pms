@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCreateManufacturer, useDeleteManufacturer, useManufacturers, useUpdateManufacturer } from '@/hooks/useManufacturers';
 
 export default function ManufacturersPage() {
@@ -123,22 +124,34 @@ export default function ManufacturersPage() {
                 <TableCell>{m.contact || '-'}</TableCell>
                 <TableCell>{m.address || '-'}</TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { /* view optional */ }}>
-                      <IconEye />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => { setEditing({ id: m.id, name: m.name, contact: m.contact, address: m.address }); setDialogOpen(true); }}>
-                      <IconPencil />
-                      Edit
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={deleteMutation.isPending}>
-                          <IconTrash />
-                          Delete
+                  <div className="flex justify-end gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button aria-label="View" variant="ghost" size="sm" onClick={() => { /* view optional */ }}>
+                          <IconEye />
                         </Button>
-                      </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>View</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button aria-label="Edit" variant="outline" size="sm" onClick={() => { setEditing({ id: m.id, name: m.name, contact: m.contact, address: m.address }); setDialogOpen(true); }}>
+                          <IconPencil />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Edit</TooltipContent>
+                    </Tooltip>
+                    <AlertDialog>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertDialogTrigger asChild>
+                            <Button aria-label="Delete" variant="destructive" size="sm" disabled={deleteMutation.isPending}>
+                              <IconTrash />
+                            </Button>
+                          </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
                       <AlertDialogContent>
                         <AlertHeader>
                           <AlertDialogTitle>Delete manufacturer?</AlertDialogTitle>

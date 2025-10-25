@@ -7,6 +7,7 @@ import { CategoryForm } from '@/components/CategoryForm';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -131,30 +132,34 @@ export default function Page() {
                 <TableCell>{c.description || '-'}</TableCell>
                 <TableCell>{c.products ? c.products.length : 0}</TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { setViewId(c.id); setViewOpen(true); }}
-                    >
-                      <IconEye />
-                      View
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { setEditing(c); setDialogOpen(true); }}
-                    >
-                      <IconPencil />
-                      Edit
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={deleteMutation.isPending}>
-                          <IconTrash />
-                          Delete
+                  <div className="flex justify-end gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button aria-label="View" variant="ghost" size="sm" onClick={() => { setViewId(c.id); setViewOpen(true); }}>
+                          <IconEye />
                         </Button>
-                      </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>View</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button aria-label="Edit" variant="outline" size="sm" onClick={() => { setEditing(c); setDialogOpen(true); }}>
+                          <IconPencil />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Edit</TooltipContent>
+                    </Tooltip>
+                    <AlertDialog>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertDialogTrigger asChild>
+                            <Button aria-label="Delete" variant="destructive" size="sm" disabled={deleteMutation.isPending}>
+                              <IconTrash />
+                            </Button>
+                          </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
                       <AlertDialogContent>
                         <AlertHeader>
                           <AlertDialogTitle>Delete category?</AlertDialogTitle>
