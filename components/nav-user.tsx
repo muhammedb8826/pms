@@ -49,7 +49,7 @@ export function NavUser({
     router.push("/login")
   }
 
-  const displayName = user.name || user.email || "User"
+  const displayName = (user.name || user.email || "User")
   const initials = (displayName.split("@")[0]
     .split(/\s+/)
     .map((part) => part[0])

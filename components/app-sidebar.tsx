@@ -45,9 +45,13 @@ const data = {
       icon: IconDashboard,
     },
     {
-      title: "Inventory",
-      url: "/dashboard/inventory",
+      title: "Catalog",
+      url: "#",
       icon: IconFolder,
+      items: [
+        { title: "Products", url: "/dashboard/inventory" },
+        { title: "Categories", url: "/dashboard/categories" },
+      ],
     },
     {
       title: "Sales",

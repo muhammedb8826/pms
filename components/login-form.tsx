@@ -43,9 +43,8 @@ export function LoginForm({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed"
       setErrorMessage(msg)
-    } finally {
-      setIsLoading(false)
     }
+    setIsLoading(false)
   }
 
   return (

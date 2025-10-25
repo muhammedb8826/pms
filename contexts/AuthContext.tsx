@@ -1,18 +1,18 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, AuthTokens } from '@/types/auth';
+import type { User, AuthTokens } from '@/types/auth';
 import { authService } from '@/services/auth';
 
-interface AuthContextType {
+type AuthContextType = {
   user: User | null;
   tokens: AuthTokens | null;
   isLoading: boolean;
   signin: (email: string, password: string) => Promise<void>;
-  signup: (data: any) => Promise<void>;
+  signup: (data: { email: string; password: string; confirm_password: string; phone: string; address: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshTokens: () => Promise<void>;
-}
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -24,7 +24,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const storedTokens = typeof window !== 'undefined' ? localStorage.getItem('tokens') : null;
     const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-
     if (storedTokens && storedUser) {
       try {
         setTokens(JSON.parse(storedTokens));
@@ -47,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('refreshToken', response.tokens.refreshToken);
   };
 
-  const signup = async (data: any) => {
+  const signup = async (data: { email: string; password: string; confirm_password: string; phone: string; address: string }) => {
     const response = await authService.signup(data);
     setUser(response.user);
     setTokens(response.tokens);
@@ -61,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await authService.logout();
     } catch {
-      // ignore logout errors
+      // ignore
     } finally {
       setUser(null);
       setTokens(null);
@@ -81,26 +80,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      tokens,
-      isLoading,
-      signin,
-      signup,
-      logout,
-      refreshTokens,
-    }}>
+    <AuthContext.Provider value={{ user, tokens, isLoading, signin, signup, logout, refreshTokens }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 }
 
-
+ 

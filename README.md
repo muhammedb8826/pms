@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## PMS Frontend
 
-## Getting Started
+React/Next.js app with shadcn UI, React Query, and JWT auth. Categories CRUD implemented with modal form, table listing, and server-side search/sort.
 
-First, run the development server:
+### Requirements
+- Node 18+
+- Backend running at `http://localhost:3001/api/v1` (configurable via `NEXT_PUBLIC_API_URL`)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Setup
+1. Install deps: `npm install`
+2. Create `.env.local` (optional):
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+   ```
+3. Start dev: `npm run dev` → http://localhost:3000
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Auth
+- Sign in via `/login`. On success, tokens are stored in `localStorage` and provided via `contexts/AuthContext.tsx`.
+- Protected pages use `components/ProtectedRoute.tsx`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Categories (CRUD)
+- Page: `app/(dashboard)/dashboard/categories/page.tsx`
+- API service: `services/categoryService.ts`
+- Types: `types/category.ts`
+- Hooks: `hooks/useCategories.ts`
+- Form: `components/CategoryForm.tsx`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Features:
+- List with shadcn Table
+- Create/Edit in shadcn Dialog (modal)
+- Read-only View dialog (details + products)
+- Delete with toast feedback (uses `sonner`)
+- Server-side filtering/sorting via query params:
+  - `page`, `limit`, `search`, `sortBy` (name|createdAt|updatedAt), `sortOrder` (asc|desc)
 
-## Learn More
+### UI
+- Components in `components/ui/*` (shadcn variants)
+- Global providers: `components/providers.tsx`
+- Toaster mounted in `app/layout.tsx`
 
-To learn more about Next.js, take a look at the following resources:
+### Env Vars
+- `NEXT_PUBLIC_API_URL`: API base (default `http://localhost:3001/api/v1`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Scripts
+- `npm run dev` - Start dev server
+- `npm run build` - Production build
+- `npm start` - Start production
+- `npm run lint` - Lint
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Notes
+- JWT is read from `localStorage.accessToken` by `categoryService`.
+- Adjust backend to accept `search`, `sortBy`, and `sortOrder` on GET `/categories` and return `{ categories, total }`.
