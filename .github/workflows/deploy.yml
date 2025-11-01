@@ -25,7 +25,7 @@ jobs:
       run: |
         rm -f .env.production
         {
-          echo "NEXT_PUBLIC_API_URL=https://pms-api.qenenia.com";
+          echo "NEXT_PUBLIC_API_URL=https://pms-api.qenenia.com/api/v1";
         } >> .env.production
 
     - name: Build Next.js app
