@@ -21,6 +21,13 @@ jobs:
     - name: Install dependencies
       run: npm install
 
+    - name: Create env file for build
+      run: |
+        rm -f .env.production
+        {
+          echo "NEXT_PUBLIC_API_URL=https://pms-api.qenenia.com";
+        } >> .env.production
+
     - name: Build Next.js app
       run: npm run build
 
@@ -31,5 +38,12 @@ jobs:
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: ${{ secrets.CPANEL_DIR }}
-        local-dir: out/
+        local-dir: ./
         protocol: ftp
+        exclude: |
+         .git/**
+         .github/**
+          node_modules/**
+         .next/cache/**
+         .env.production
+      # Optionally add any other files you don't need on the remote server
