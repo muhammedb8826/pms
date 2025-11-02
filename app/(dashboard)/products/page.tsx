@@ -11,6 +11,7 @@ import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteProduct, useProduct, useProducts } from '@/features/product/hooks/useProducts';
+import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import { useImportProductsSimpleMutation, useLazyDownloadProductTemplateQuery } from '@/features/product/api/productApi';
 import Image from 'next/image';
 
@@ -49,12 +50,25 @@ export default function ProductsPage() {
 
   async function handleDelete(id: string) {
     try {
-      await deleteMutation.mutateAsync(id);
+      const result = await deleteMutation.mutateAsync(id);
+      
+      // Check if result contains an error (RTK Query may return errors instead of throwing)
+      if (result && typeof result === 'object' && 'error' in result && result.error) {
+        handleApiError(result.error, {
+          defaultMessage: 'Failed to delete product',
+        });
+        return; // Don't refetch or show success
+      }
+      
+      // Only refetch and show success if mutation succeeded
       refetch();
-      toast.success('Product deleted');
+      handleApiSuccess('Product deleted successfully');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete product';
-      toast.error(message);
+      // Extract and display the actual API error message
+      handleApiError(err, {
+        defaultMessage: 'Failed to delete product',
+      });
+      // Don't refetch on error - product still exists
     }
   }
 

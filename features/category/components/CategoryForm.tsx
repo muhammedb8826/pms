@@ -6,6 +6,7 @@ import type { Category } from '@/features/category/types';
 import { useCreateCategory, useUpdateCategory } from '@/features/category/hooks/useCategories';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Max 100 characters'),
@@ -59,14 +60,18 @@ export function CategoryForm({ category, onSuccess, onCancel, formId, hideAction
     try {
       if (category) {
         await updateMutation.mutateAsync({ id: category.id, dto: { name, description: description || undefined } });
+        handleApiSuccess('Category updated successfully');
       } else {
         await createMutation.mutateAsync({ name, description: description || undefined });
+        handleApiSuccess('Category created successfully');
       }
       onSuccess();
       setName('');
       setDescription('');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Operation failed';
+    } catch (err: unknown) {
+      const message = handleApiError(err, {
+        defaultMessage: 'Failed to save category',
+      });
       setErrors((prev) => ({ ...prev, form: message }));
       onErrorChange?.(message);
     }

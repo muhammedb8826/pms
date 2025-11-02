@@ -1,8 +1,8 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
+import React from 'react';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children, requiredRoles }: ProtectedRou
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
     }

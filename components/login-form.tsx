@@ -20,7 +20,7 @@ import {
   FieldError,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { useAuth } from "@/contexts/AuthContext"
+import { useAuth } from "@/features/auth/contexts/AuthContext"
 
 export function LoginForm({
   className,

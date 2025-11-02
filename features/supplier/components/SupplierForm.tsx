@@ -6,6 +6,7 @@ import type { Supplier } from '@/features/supplier/types';
 import { useCreateSupplier, useUpdateSupplier } from '@/features/supplier/hooks/useSuppliers';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200, 'Max 200 characters'),
@@ -71,8 +72,10 @@ export function SupplierForm({ supplier, onSuccess, onCancel, formId, hideAction
       };
       if (supplier) {
         await updateMutation.mutateAsync({ id: supplier.id, dto: data });
+        handleApiSuccess('Supplier updated successfully');
       } else {
         await createMutation.mutateAsync(data);
+        handleApiSuccess('Supplier created successfully');
       }
       onSuccess();
       if (!supplier) {
@@ -81,8 +84,10 @@ export function SupplierForm({ supplier, onSuccess, onCancel, formId, hideAction
         setEmail('');
         setAddress('');
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Operation failed';
+    } catch (err: unknown) {
+      const message = handleApiError(err, {
+        defaultMessage: 'Failed to save supplier',
+      });
       setErrors((prev) => ({ ...prev, form: message }));
       onErrorChange?.(message);
     }

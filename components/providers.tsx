@@ -3,7 +3,7 @@
 import React, { useMemo, type PropsWithChildren } from 'react';
 import { Provider } from 'react-redux';
 import { makeStore } from '@/lib/store';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider } from '@/features/auth/contexts/AuthContext';
 
 export function Providers({ children }: PropsWithChildren) {
   const store = useMemo(() => makeStore(), []);

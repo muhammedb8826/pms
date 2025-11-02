@@ -31,7 +31,37 @@ export const unitCategoryApi = baseApi.injectEndpoints({
         // Use paginated endpoint with high limit to get all categories
         return '/unit-categories?page=1&limit=1000';
       },
-      transformResponse: (response: PaginatedUnitCategories) => response.data,
+      transformResponse: (
+        response: UnitCategory[] | PaginatedUnitCategories | { success: true; data: PaginatedUnitCategories }
+      ): UnitCategory[] => {
+        // Narrow: raw array
+        if (Array.isArray(response)) return response;
+
+        // Type guards without using `any`
+        const isWrapped = (
+          r: unknown
+        ): r is { success: true; data: PaginatedUnitCategories } => {
+          if (typeof r !== 'object' || r === null) return false;
+          const obj = r as Record<string, unknown>;
+          return obj.success === true && typeof obj.data === 'object' && obj.data !== null;
+        };
+
+        const isPaginated = (r: unknown): r is PaginatedUnitCategories => {
+          if (typeof r !== 'object' || r === null) return false;
+          const obj = r as Record<string, unknown>;
+          return Array.isArray(obj.data);
+        };
+
+        if (isWrapped(response) && isPaginated(response.data)) {
+          return response.data.data;
+        }
+
+        if (isPaginated(response)) {
+          return response.data;
+        }
+
+        return [];
+      },
       providesTags: ['UnitCategories'],
     }),
     getUnitCategory: builder.query<UnitCategory, string>({

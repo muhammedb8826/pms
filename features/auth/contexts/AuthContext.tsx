@@ -38,6 +38,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signin = async (email: string, password: string) => {
     const response = await authService.signin({ email, password });
+    // Validate response structure
+    if (!response || !response.tokens || !response.user) {
+      throw new Error('Invalid response from server');
+    }
     setUser(response.user);
     setTokens(response.tokens);
     localStorage.setItem('user', JSON.stringify(response.user));
@@ -48,6 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (data: { email: string; password: string; confirm_password: string; phone: string; address: string }) => {
     const response = await authService.signup(data);
+    // Validate response structure
+    if (!response || !response.tokens || !response.user) {
+      throw new Error('Invalid response from server');
+    }
     setUser(response.user);
     setTokens(response.tokens);
     localStorage.setItem('user', JSON.stringify(response.user));
@@ -73,6 +81,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTokens = async () => {
     const response = await authService.refreshTokens();
+    // Validate response structure
+    if (!response || !response.tokens) {
+      throw new Error('Invalid response from server');
+    }
     setTokens(response.tokens);
     localStorage.setItem('tokens', JSON.stringify(response.tokens));
     localStorage.setItem('accessToken', response.tokens.accessToken);

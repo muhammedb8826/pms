@@ -28,7 +28,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useAuth } from "@/contexts/AuthContext"
+import { useAuth } from "@/features/auth/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 
 export function NavUser({

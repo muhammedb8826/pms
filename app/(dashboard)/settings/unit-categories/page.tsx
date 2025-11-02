@@ -18,7 +18,10 @@ export default function Page() {
   const [page, setPage] = useState(1);
   const limit = 10;
   const [search, setSearch] = useState('');
-  const { unitCategories, total, loading, error, refetch } = useUnitCategories(page, limit, { q: search });
+  const { unitCategories: rawUnitCategories, total, loading, error, refetch } = useUnitCategories(page, limit, { q: search });
+  
+  // Ensure unitCategories is always an array
+  const unitCategories = Array.isArray(rawUnitCategories) ? rawUnitCategories : [];
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<UnitCategory | null>(null);
   const [formError, setFormError] = useState<string | null>(null);

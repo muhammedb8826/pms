@@ -8,11 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryForm } from '@/features/category/components/CategoryForm';
-import { toast } from 'sonner';
+import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import { useCreateManufacturer, useAllManufacturers } from '@/features/manufacturer/hooks/useManufacturers';
 import { useCreateUnitOfMeasure, useAllUnitOfMeasures } from '@/features/uom/hooks/useUnitOfMeasures';
 import { useAllCategories } from '@/features/category/hooks/useCategories';
 import { useAllUnitCategories } from '@/features/unit-category/hooks/useUnitCategories';
+import type { Manufacturer } from '@/features/manufacturer/types';
+import type { Category } from '@/features/category/types';
+import type { UnitCategory } from '@/features/unit-category/types';
+import type { UnitOfMeasure } from '@/features/uom/types';
 import { UnitCategoryForm } from '@/features/unit-category/components/UnitCategoryForm';
 import { Button } from '@/components/ui/button';
 import { ImageUpload } from '@/components/ui/image-upload';
@@ -54,10 +58,39 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const allManufacturers = useAllManufacturers();
-  const allUoms = useAllUnitOfMeasures();
+  const allUoms = useAllUnitOfMeasures({ unitCategoryId: form.unitCategoryId || undefined });
   const allCategories = useAllCategories();
   const allUnitCategoriesQuery = useAllUnitCategories();
-  const allUnitCategories = allUnitCategoriesQuery.data ?? [];
+  
+  // Ensure all arrays are always arrays, handling wrapped API responses
+  type WrappedResponse<T> = {
+    success: boolean;
+    data: T;
+  };
+  
+  const allManufacturersArray = React.useMemo(() => {
+    const data = allManufacturers.data as Manufacturer[] | WrappedResponse<Manufacturer[]> | undefined;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if ('success' in data && data.success && Array.isArray(data.data)) return data.data;
+    return [];
+  }, [allManufacturers.data]);
+  
+  const allCategoriesArray = React.useMemo(() => {
+    const data = allCategories.data as Category[] | WrappedResponse<Category[]> | undefined;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if ('success' in data && data.success && Array.isArray(data.data)) return data.data;
+    return [];
+  }, [allCategories.data]);
+  
+  const allUnitCategories = React.useMemo(() => {
+    const data = allUnitCategoriesQuery.data as UnitCategory[] | WrappedResponse<UnitCategory[]> | undefined;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if ('success' in data && data.success && Array.isArray(data.data)) return data.data;
+    return [];
+  }, [allUnitCategoriesQuery.data]);
   const createManu = useCreateManufacturer();
   const createUom = useCreateUnitOfMeasure();
   const [openNewCategory, setOpenNewCategory] = useState(false);
@@ -69,10 +102,21 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
   const [manuError, setManuError] = useState<string | null>(null);
   const [uomError, setUomError] = useState<string | null>(null);
   
-  // Filter UOMs by selected unit category
+  // UOMs for the chosen category (handles wrapped responses and snake_case id)
   const filteredUoms = React.useMemo(() => {
-    if (!form.unitCategoryId) return [];
-    return (allUoms.data ?? []).filter((uom) => uom.unitCategoryId === form.unitCategoryId);
+    if (!form.unitCategoryId) return [] as UnitOfMeasure[];
+    type WrappedResp<T> = { success?: boolean; data?: T };
+    type UomWithSnake = UnitOfMeasure & { unit_category_id?: string };
+    const raw = allUoms.data as UnitOfMeasure[] | WrappedResp<UnitOfMeasure[]> | undefined;
+    const list: UomWithSnake[] = Array.isArray(raw)
+      ? (raw as UomWithSnake[])
+      : (raw && 'data' in (raw as WrappedResp<UnitOfMeasure[]>) && Array.isArray((raw as WrappedResp<UnitOfMeasure[]>).data)
+          ? ((raw as WrappedResp<UnitOfMeasure[]>).data as UomWithSnake[])
+          : ([] as UomWithSnake[]));
+    // If backend filtered by unitCategoryId, list is already correct; keep a safe filter anyway
+    return list.filter((u) =>
+      u.unitCategoryId === form.unitCategoryId || u.unit_category_id === form.unitCategoryId || u.unitCategory?.id === form.unitCategoryId
+    );
   }, [allUoms.data, form.unitCategoryId]);
 
   const createMutation = useCreateProduct();
@@ -129,6 +173,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
       
       if (product) {
         await updateMutation.mutateAsync({ id: product.id, dto: parsed.data });
+        handleApiSuccess('Product updated successfully');
         productId = product.id;
       } else {
         const response = await createMutation.mutateAsync(parsed.data);
@@ -159,6 +204,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
         
         productId = extractedId;
         console.log('Extracted product ID:', productId);
+        handleApiSuccess('Product created successfully');
       }
       
       // Upload image if a new one was selected
@@ -168,19 +214,23 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
         try {
           const uploadResult = await uploadImageMutation.mutateAsync({ id: productId, file: imageFile });
           console.log('Image upload result:', uploadResult);
-          toast.success('Product image uploaded successfully');
+          handleApiSuccess('Product image uploaded successfully');
         } catch (imageErr) {
           // Don't fail the whole operation if image upload fails
           console.error('Image upload failed:', imageErr);
-          toast.error('Product saved but image upload failed');
+          handleApiError(imageErr, {
+            defaultMessage: 'Product saved but image upload failed',
+          });
         }
       } else {
         console.log('No image file selected for upload');
       }
       
       onSuccess();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Operation failed';
+    } catch (err: unknown) {
+      const message = handleApiError(err, {
+        defaultMessage: 'Failed to save product',
+      });
       onErrorChange?.(message);
     }
   }
@@ -232,7 +282,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
           >
             <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
             <SelectContent>
-              {(allCategories.data ?? []).map((c: { id: string; name: string }) => (
+              {allCategoriesArray.map((c: { id: string; name: string }) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
             </SelectContent>
@@ -262,7 +312,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
             <SelectTrigger><SelectValue placeholder="Select manufacturer (optional)" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="">None</SelectItem>
-              {(allManufacturers.data ?? []).map((m) => (
+              {allManufacturersArray.map((m) => (
                 <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
               ))}
             </SelectContent>
@@ -381,7 +431,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
             <DialogTitle>New Category</DialogTitle>
           </DialogHeader>
           <CategoryForm
-            onSuccess={() => { setOpenNewCategory(false); toast.success('Category created'); }}
+            onSuccess={() => { setOpenNewCategory(false); handleApiSuccess('Category created'); }}
             onCancel={() => setOpenNewCategory(false)}
           />
         </DialogContent>
@@ -416,12 +466,13 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
                 if (!manuForm.name.trim()) { setManuError('Name is required'); return; }
                 try {
                   const created = await createManu.mutateAsync({ name: manuForm.name.trim(), contact: manuForm.contact, address: manuForm.address });
-                  toast.success('Manufacturer created');
+                  handleApiSuccess('Manufacturer created');
                   // @ts-expect-error - RTK Query mutation result type
                   setField('manufacturerId', created.id);
                   setOpenNewManu(false);
-                } catch (e) {
-                  setManuError(e instanceof Error ? e.message : 'Failed to create manufacturer');
+                } catch (e: unknown) {
+                  const errorMsg = handleApiError(e, { defaultMessage: 'Failed to create manufacturer' });
+                  setManuError(errorMsg);
                 }
               }}>Create</Button>
             </div>
@@ -458,19 +509,20 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
                 if (!uomForm.name.trim()) { setUomError('Name is required'); return; }
                 if (!form.unitCategoryId) { setUomError('Please select a unit category first'); return; }
                 try {
-                  const created = await createUom.mutateAsync({ 
+                  await createUom.mutateAsync({ 
                     name: uomForm.name.trim(), 
                     abbreviation: uomForm.abbreviation, 
                     conversionRate: uomForm.conversionRate || '1',
                     baseUnit: false,
                     unitCategoryId: form.unitCategoryId
                   });
-                  toast.success('Unit of Measure created');
+                  handleApiSuccess('Unit of Measure created');
                   // Refresh UOMs list - the query will automatically refetch
                   setOpenNewUom(false);
                   setUomForm({ name: '', conversionRate: '1' });
-                } catch (e) {
-                  setUomError(e instanceof Error ? e.message : 'Failed to create unit of measure');
+                } catch (e: unknown) {
+                  const errorMsg = handleApiError(e, { defaultMessage: 'Failed to create unit of measure' });
+                  setUomError(errorMsg);
                 }
               }}>Create</Button>
             </div>
@@ -487,7 +539,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
           <UnitCategoryForm
             onSuccess={() => {
               setOpenNewUnitCategory(false);
-              toast.success('Unit category created');
+              handleApiSuccess('Unit category created');
               // Refresh categories - the query will automatically refetch
             }}
             onCancel={() => setOpenNewUnitCategory(false)}

@@ -20,7 +20,8 @@ import {
   FieldError,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { useAuth } from "@/contexts/AuthContext"
+import { useAuth } from "@/features/auth/contexts/AuthContext"
+import { handleApiError } from '@/lib/utils/api-error-handler';
 
 export function LoginForm({
   className,
@@ -40,9 +41,12 @@ export function LoginForm({
     try {
       await signin(email, password)
       router.push("/dashboard")
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Login failed"
-      setErrorMessage(msg)
+    } catch (err: unknown) {
+      const msg = handleApiError(err, {
+        defaultMessage: "Login failed",
+        showToast: false, // Show error in form instead of toast
+      });
+      setErrorMessage(msg);
     }
     setIsLoading(false)
   }

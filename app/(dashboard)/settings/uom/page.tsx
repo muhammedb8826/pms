@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCreateUnitOfMeasure, useDeleteUnitOfMeasure, useUnitOfMeasures, useUpdateUnitOfMeasure } from '@/features/uom/hooks/useUnitOfMeasures';
 import { useAllUnitCategories, useUnitCategory } from '@/features/unit-category/hooks/useUnitCategories';
+import type { UnitCategory } from '@/features/unit-category/types';
 
 export default function UnitOfMeasuresPage() {
   const searchParams = useSearchParams();
@@ -25,19 +26,32 @@ export default function UnitOfMeasuresPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(categoryIdFromQuery || '');
   const isCategorySpecificView = Boolean(categoryIdFromQuery);
   
-  const { unitOfMeasures, total, loading, error, refetch } = useUnitOfMeasures(
+  const { unitOfMeasures: rawUnitOfMeasures, total, loading, error, refetch } = useUnitOfMeasures(
     isCategorySpecificView ? 1 : page, 
     isCategorySpecificView ? limit : 10, 
     { q: search, unitCategoryId: selectedCategoryId || undefined }
+  );
+  
+  // Ensure unitOfMeasures is always an array
+  const unitOfMeasures = useMemo(
+    () => Array.isArray(rawUnitOfMeasures) ? rawUnitOfMeasures : [],
+    [rawUnitOfMeasures]
   );
   const allUnitCategoriesQuery = useAllUnitCategories();
   const categoryQuery = useUnitCategory(categoryIdFromQuery || undefined);
   const categoryName = categoryQuery.data?.name || '';
   
-  // Get categories array - ensure it's always an array
+  // Get categories array - ensure it's always an array, handling wrapped API responses
   const allUnitCategories = useMemo(() => {
-    const data = allUnitCategoriesQuery.data;
-    return Array.isArray(data) ? data : [];
+    type WrappedResponse<T> = {
+      success: boolean;
+      data: T;
+    };
+    const data = allUnitCategoriesQuery.data as UnitCategory[] | WrappedResponse<UnitCategory[]> | undefined;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if ('success' in data && data.success && Array.isArray(data.data)) return data.data;
+    return [];
   }, [allUnitCategoriesQuery.data]);
   
   // Create lookup map for category names (in case API doesn't include relation)
@@ -347,10 +361,20 @@ export default function UnitOfMeasuresPage() {
               <TableRow key={u.id} className={u.baseUnit ? 'bg-accent/30' : ''}>
                 {!isCategorySpecificView && (
                   <TableCell>
-                    {u.unitCategory?.name || 
-                     categoryMap.get(u.unitCategoryId) || 
-                     (allUnitCategories.length > 0 && allUnitCategories.find(cat => cat.id === u.unitCategoryId)?.name) || 
-                     '-'}
+                    {((): string => {
+                      const directName = u.unitCategory?.name;
+                      if (directName) return directName;
+                      const maybeSnake = (u as unknown as { unit_category_id?: string }).unit_category_id;
+                      const catId = u.unitCategoryId || maybeSnake || u.unitCategory?.id;
+                      if (catId) {
+                        return (
+                          categoryMap.get(catId) ||
+                          (allUnitCategories.length > 0 && allUnitCategories.find(cat => cat.id === catId)?.name) ||
+                          '-'
+                        );
+                      }
+                      return '-';
+                    })()}
                   </TableCell>
                 )}
                 <TableCell className="font-medium">{u.name}</TableCell>

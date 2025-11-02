@@ -7,6 +7,7 @@ import {
   useUpdateUnitOfMeasureMutation,
   useDeleteUnitOfMeasureMutation,
 } from '@/features/uom/api/uomApi';
+import type { UnitOfMeasure, PaginatedUnitOfMeasures } from '@/features/uom/types';
 
 export function useUnitOfMeasures(page = 1, limit = 10, options?: { q?: string; unitCategoryId?: string }) {
   const query = useGetUnitOfMeasuresQuery({
@@ -15,9 +16,38 @@ export function useUnitOfMeasures(page = 1, limit = 10, options?: { q?: string; 
     q: options?.q,
     unitCategoryId: options?.unitCategoryId,
   });
+
+  // Handle different API response formats:
+  // - Direct: { data: [...], total: ... }
+  // - Wrapped: { success: true, data: { data: [...], total: ... } }
+  type WrappedResponse = {
+    success: boolean;
+    data: PaginatedUnitOfMeasures;
+  };
+  
+  const rawData = query.data as PaginatedUnitOfMeasures | WrappedResponse | undefined;
+  let unitOfMeasuresArray: UnitOfMeasure[] = [];
+  let totalCount = 0;
+
+  if (rawData) {
+    // Check if response is wrapped: { success: true, data: { ... } }
+    if ('success' in rawData && rawData.success && rawData.data) {
+      const innerData = rawData.data;
+      unitOfMeasuresArray = Array.isArray(innerData?.data) ? innerData.data : [];
+      totalCount = innerData?.total ?? 0;
+    } else if (!('success' in rawData) && 'data' in rawData && Array.isArray(rawData.data)) {
+      // Direct format: { data: [...], total: ... }
+      unitOfMeasuresArray = rawData.data;
+      totalCount = rawData.total ?? 0;
+    } else if (Array.isArray(rawData)) {
+      // Array directly
+      unitOfMeasuresArray = rawData;
+    }
+  }
+
   return {
-    unitOfMeasures: query.data?.data ?? [],
-    total: query.data?.total ?? 0,
+    unitOfMeasures: unitOfMeasuresArray,
+    total: totalCount,
     loading: query.isLoading,
     error: query.error ? (query.error as { message?: string })?.message || 'An error occurred' : null,
     refetch: query.refetch,

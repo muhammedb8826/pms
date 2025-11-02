@@ -30,7 +30,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useAuth } from "@/contexts/AuthContext"
+import { useAuth } from "@/features/auth/contexts/AuthContext"
 
 const data = {
   user: {
@@ -50,6 +50,7 @@ const data = {
       icon: IconFolder,
       items: [
         { title: "Products", url: "/products" },
+        { title: "Batches", url: "/batches" },
         { title: "Add Product", url: "/products/new" },
         { title: "Categories", url: "/categories" },
         { title: "Manufacturers", url: "/manufacturers" },

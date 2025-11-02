@@ -1,4 +1,4 @@
-import { AuthResponse, SignupRequest, SigninRequest } from '@/types/auth';
+import { AuthResponse, SignupRequest, SigninRequest, AuthTokens, User } from '@/types/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.daminaa.org/api/v1';
 
@@ -42,17 +42,31 @@ class AuthService {
   }
 
   async signup(data: SignupRequest): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/signup', {
+    const response = await this.request<{ success?: boolean; data?: AuthResponse; tokens?: AuthTokens; user?: User }>('/signup', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    // Handle wrapped response format: { success: true, data: { tokens, user } }
+    // Or direct format: { tokens, user }
+    if (response.data) {
+      return response.data as AuthResponse;
+    }
+    // Fallback to direct format
+    return response as AuthResponse;
   }
 
   async signin(data: SigninRequest): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/signin', {
+    const response = await this.request<{ success?: boolean; data?: AuthResponse; tokens?: AuthTokens; user?: User }>('/signin', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    // Handle wrapped response format: { success: true, data: { tokens, user } }
+    // Or direct format: { tokens, user }
+    if (response.data) {
+      return response.data as AuthResponse;
+    }
+    // Fallback to direct format
+    return response as AuthResponse;
   }
 
   async logout(): Promise<void> {
@@ -65,10 +79,17 @@ class AuthService {
 
   async refreshTokens(): Promise<AuthResponse> {
     const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
-    return this.request<AuthResponse>('/refresh', {
+    const response = await this.request<{ success?: boolean; data?: AuthResponse; tokens?: AuthTokens; user?: User }>('/refresh', {
       method: 'POST',
       headers: refreshToken ? { Authorization: `Bearer ${refreshToken}` } : undefined,
     });
+    // Handle wrapped response format: { success: true, data: { tokens, user } }
+    // Or direct format: { tokens, user }
+    if (response.data) {
+      return response.data as AuthResponse;
+    }
+    // Fallback to direct format
+    return response as AuthResponse;
   }
 }
 
