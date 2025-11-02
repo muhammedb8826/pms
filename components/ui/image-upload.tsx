@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 export interface ImageUploadProps {
   value?: string | null
@@ -158,10 +159,23 @@ export function ImageUpload({
 
         {preview ? (
           <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted">
-            <img
+            <Image
+              width={100}
+              height={100}
               src={preview}
               alt="Preview"
               className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground">Failed to load image</div>';
+                }
+              }}
+              onLoad={() => {
+                console.log('Image loaded successfully:', preview);
+              }}
             />
             {!disabled && (
               <button

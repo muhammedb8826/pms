@@ -9,20 +9,19 @@ import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useCreateUnitOfMeasure, useDeleteUnitOfMeasure, useUnitOfMeasures, useUpdateUnitOfMeasure } from '@/features/uom/hooks/useUnitOfMeasures';
+import { useDeleteUnitOfMeasure, useUnitOfMeasures, useUpdateUnitOfMeasure } from '@/features/uom/hooks/useUnitOfMeasures';
 
 export default function UnitOfMeasuresPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
   const [search, setSearch] = useState('');
-  const { unitOfMeasures, total, loading, error, refetch } = useUnitOfMeasures(page, limit, { search });
+  const { unitOfMeasures, total, loading, error, refetch } = useUnitOfMeasures(page, limit, { q: search });
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<{ id?: string; name: string; abbreviation?: string; conversionRate?: number } | null>(null);
+  const [editing, setEditing] = useState<{ id?: string; name: string; abbreviation?: string; conversionRate?: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
-  const createMutation = useCreateUnitOfMeasure();
   const updateMutation = useUpdateUnitOfMeasure();
   const deleteMutation = useDeleteUnitOfMeasure();
 
@@ -49,11 +48,14 @@ export default function UnitOfMeasuresPage() {
     setFormSubmitting(true);
     try {
       if (editing.id) {
-        await updateMutation.mutateAsync({ id: editing.id, dto: { name: editing.name.trim(), abbreviation: editing.abbreviation, conversionRate: editing.conversionRate } });
+        await updateMutation.mutateAsync({ id: editing.id, dto: { name: editing.name.trim(), abbreviation: editing.abbreviation, conversionRate: editing.conversionRate || '1' } });
         toast.success('Unit of measure updated');
       } else {
-        await createMutation.mutateAsync({ name: editing.name.trim(), abbreviation: editing.abbreviation, conversionRate: editing.conversionRate });
-        toast.success('Unit of measure created');
+        // This page doesn't support creating UOMs without unitCategoryId
+        // Users should use the Settings > Units of Measure page instead
+        setFormError('Please use Settings > Units of Measure to create new units. This page requires a unit category.');
+        setFormSubmitting(false);
+        return;
       }
       setDialogOpen(false);
       setEditing(null);
@@ -74,7 +76,9 @@ export default function UnitOfMeasuresPage() {
         <h1 className="text-xl font-semibold">Units of Measure</h1>
         <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Input placeholder="Search..." className="w-full min-w-0 sm:w-48" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Button onClick={() => { setEditing({ name: '' }); setDialogOpen(true); }}>Add Unit</Button>
+          <Button asChild>
+            <a href="/settings/uom">Add Unit</a>
+          </Button>
         </div>
       </div>
 
@@ -95,7 +99,7 @@ export default function UnitOfMeasuresPage() {
             </div>
             <div>
               <label className="block text-sm font-medium">Conversion Rate</label>
-              <Input type="number" value={editing?.conversionRate ?? 1} onChange={(e) => setEditing((prev) => ({ ...(prev || { name: '' }), conversionRate: Number(e.target.value) }))} />
+              <Input type="number" value={editing?.conversionRate ?? '1'} onChange={(e) => setEditing((prev) => ({ ...(prev || { name: '' }), conversionRate: e.target.value }))} />
             </div>
             <DialogFooter>
               <div className="flex w-full items-center justify-end gap-2">
@@ -135,7 +139,7 @@ export default function UnitOfMeasuresPage() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button aria-label="Edit" variant="outline" size="sm" onClick={() => { setEditing({ id: u.id, name: u.name, abbreviation: u.abbreviation, conversionRate: u.conversionRate }); setDialogOpen(true); }}>
+                        <Button aria-label="Edit" variant="outline" size="sm" onClick={() => { setEditing({ id: u.id, name: u.name, abbreviation: u.abbreviation, conversionRate: u.conversionRate || '1' }); setDialogOpen(true); }}>
                           <IconPencil />
                         </Button>
                       </TooltipTrigger>

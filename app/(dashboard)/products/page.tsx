@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteProduct, useProduct, useProducts } from '@/features/product/hooks/useProducts';
 import { useImportProductsSimpleMutation, useLazyDownloadProductTemplateQuery } from '@/features/product/api/productApi';
+import Image from 'next/image';
 
 export default function ProductsPage() {
   const [page, setPage] = useState(1);
@@ -288,13 +289,13 @@ export default function ProductsPage() {
                       
                       return (
                         <div className="relative aspect-square w-full rounded-md border overflow-hidden bg-muted">
-                          <img
+                          <Image
+                            width={100}
+                            height={100}
                             src={imageUrl}
                             alt={viewQuery.data.name}
                             className="w-full h-full object-contain"
                             onError={(e) => {
-                              console.error('Image load error:', imageUrl);
-                              console.error('Error event:', e);
                               const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
                               const parent = target.parentElement;

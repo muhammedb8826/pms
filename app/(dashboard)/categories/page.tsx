@@ -61,7 +61,7 @@ export default function Page() {
         <h1 className="text-xl font-semibold">Categories</h1>
         <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Input placeholder="Search..." className="w-full min-w-0 sm:w-48" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v || 'name')}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -71,7 +71,7 @@ export default function Page() {
               <SelectItem value="updatedAt">Updated</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as 'asc' | 'desc')}>
+          <Select value={sortOrder} onValueChange={(v) => setSortOrder((v || 'asc') as 'asc' | 'desc')}>
             <SelectTrigger className="w-full sm:w-32">
               <SelectValue placeholder="Order" />
             </SelectTrigger>
