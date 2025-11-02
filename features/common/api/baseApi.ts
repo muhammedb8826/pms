@@ -35,6 +35,8 @@ export const baseApi = createApi({
     'UnitOfMeasure',
     'UnitCategories',
     'UnitCategory',
+    'Suppliers',
+    'Supplier',
   ],
   endpoints: () => ({}),
 });
