@@ -1,22 +1,19 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Product } from '@/types/product';
-import { useDeleteProduct, useProduct, useProducts } from '@/hooks/useProducts';
-// import { productService } from '@/services/productService';
-import { productImportService } from '@/services/productImportService';
-import { ProductForm } from '@/components/ProductForm';
+import { useDeleteProduct, useProduct, useProducts } from '@/features/product/hooks/useProducts';
+import { useImportProductsSimpleMutation, useLazyDownloadProductTemplateQuery } from '@/features/product/api/productApi';
 
-export default function InventoryPage() {
+export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
   const [search, setSearch] = useState('');
@@ -24,16 +21,28 @@ export default function InventoryPage() {
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
   const { products, total, loading, error, refetch } = useProducts(page, limit, { search, sortBy, sortOrder });
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSubmitting, setFormSubmitting] = useState(false);
 
   const [viewOpen, setViewOpen] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
   const viewQuery = useProduct(viewId ?? undefined);
+  
+  // Refetch product data when view modal opens to get latest data including image
+  useEffect(() => {
+    if (viewOpen && viewId) {
+      // Small delay to ensure modal is open before refetching
+      const timer = setTimeout(() => {
+        if (viewQuery.refetch) {
+          viewQuery.refetch();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewOpen, viewId]);
 
   const deleteMutation = useDeleteProduct();
+  const [importProducts] = useImportProductsSimpleMutation();
+  const [downloadTemplate] = useLazyDownloadProductTemplateQuery();
 
   const canNext = useMemo(() => ((page - 1) * limit + products.length) < total, [page, limit, products.length, total]);
 
@@ -48,12 +57,6 @@ export default function InventoryPage() {
     }
   }
 
-  function onFormSuccess() {
-    setDialogOpen(false);
-    setEditing(null);
-    refetch();
-  }
-
   if (loading) return <div className="p-4">Loading…</div>;
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
 
@@ -63,7 +66,7 @@ export default function InventoryPage() {
         <h1 className="text-xl font-semibold">Products</h1>
         <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Input placeholder="Search..." className="w-full min-w-0 sm:w-48" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v || 'name')}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -88,7 +91,7 @@ export default function InventoryPage() {
           </Select>
           <div className="flex items-center gap-2">
             <Button asChild>
-              <a href="/dashboard/inventory/new">Add Product</a>
+              <a href="/products/new">Add Product</a>
             </Button>
             <input
               id="product-import-input"
@@ -108,7 +111,7 @@ export default function InventoryPage() {
                     toast.error('File size must be less than 10MB');
                     return;
                   }
-                  const res = await productImportService.importProducts(file);
+                  const res = await importProducts(file).unwrap();
                   if (res.success > 0) {
                     toast.success(`Successfully imported ${res.success} products`);
                   }
@@ -128,7 +131,11 @@ export default function InventoryPage() {
             <Button variant="outline" onClick={() => document.getElementById('product-import-input')?.click()}>Import</Button>
             <Button variant="outline" onClick={async () => {
               try {
-                const blob = await productImportService.downloadTemplate();
+                const { data: blob } = await downloadTemplate();
+                if (!blob) {
+                  toast.error('Template not available');
+                  return;
+                }
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -145,36 +152,6 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Edit dialog remains; create moved to dedicated page */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setFormError(null); setFormSubmitting(false); setEditing(null); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Product' : ''}</DialogTitle>
-          </DialogHeader>
-          {editing ? (
-            <>
-              <ProductForm
-                product={editing}
-                onSuccess={onFormSuccess}
-                onCancel={() => { setDialogOpen(false); setEditing(null); }}
-                onErrorChange={setFormError}
-                onSubmittingChange={setFormSubmitting}
-                formId="product-form"
-                hideActions
-              />
-              <DialogFooter>
-                <div className="flex w-full items-center justify-between">
-                  {formError ? <span className="text-xs text-red-600">{formError}</span> : <span />}
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); setEditing(null); }}>Cancel</Button>
-                    <Button type="submit" form="product-form" disabled={formSubmitting}>{formSubmitting ? 'Saving…' : 'Update'}</Button>
-                  </div>
-                </div>
-              </DialogFooter>
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
 
       <div className="rounded-md border overflow-x-auto">
         <Table className="min-w-[900px]">
@@ -199,7 +176,7 @@ export default function InventoryPage() {
                 <TableCell className="hidden md:table-cell">{p.genericName || '-'}</TableCell>
                 <TableCell>{p.category?.name || '-'}</TableCell>
                 <TableCell className="hidden lg:table-cell">{p.manufacturer?.name || '-'}</TableCell>
-                <TableCell className="hidden lg:table-cell">{p.unitOfMeasure?.name || '-'}</TableCell>
+                <TableCell className="hidden lg:table-cell">{p.unitCategory?.name || '-'}</TableCell>
                 <TableCell className="text-right">{p.quantity}</TableCell>
                 <TableCell className="hidden md:table-cell text-right">{Number.isFinite(Number(p.purchasePrice)) ? Number(p.purchasePrice).toFixed(2) : '-'}</TableCell>
                 <TableCell className="text-right">{Number.isFinite(Number(p.sellingPrice)) ? Number(p.sellingPrice).toFixed(2) : '-'}</TableCell>
@@ -216,8 +193,10 @@ export default function InventoryPage() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button aria-label="Edit" variant="outline" size="sm" onClick={() => { setEditing(p); setDialogOpen(true); }}>
-                          <IconPencil />
+                        <Button aria-label="Edit" variant="outline" size="sm" asChild>
+                          <a href={`/products/${p.id}/edit`}>
+                            <IconPencil />
+                          </a>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Edit</TooltipContent>
@@ -264,63 +243,142 @@ export default function InventoryPage() {
       </div>
 
       <Dialog open={viewOpen} onOpenChange={(o) => { setViewOpen(o); if (!o) setViewId(null); }}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Product Details</DialogTitle>
             {viewQuery.data?.id ? (
               <DialogDescription>ID: {viewQuery.data.id}</DialogDescription>
             ) : null}
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {viewQuery.isLoading ? (
               <div>Loading…</div>
             ) : viewQuery.error ? (
               <div className="text-red-600 text-sm">{viewQuery.error instanceof Error ? viewQuery.error.message : 'Failed to load'}</div>
             ) : viewQuery.data ? (
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Name</div>
-                  <div className="font-medium">{viewQuery.data.name}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left column - Image */}
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-2">Product Image</div>
+                    {(() => {
+                      console.log('Full product data:', viewQuery.data);
+                      console.log('Product image field:', viewQuery.data.image);
+                      const imagePath = viewQuery.data.image;
+                      if (!imagePath) {
+                        console.log('Product image is null/undefined');
+                        return (
+                          <div className="aspect-square w-full rounded-md border flex items-center justify-center bg-muted text-muted-foreground">
+                            No image
+                          </div>
+                        );
+                      }
+                      
+                      const getImageUrl = () => {
+                        if (imagePath.startsWith('http')) return imagePath;
+                        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.qenenia.com/api/v1';
+                        const baseUrl = apiBase.replace('/api/v1', '');
+                        const url = imagePath.startsWith('/') ? `${baseUrl}${imagePath}` : `${baseUrl}/${imagePath}`;
+                        console.log('Image path:', imagePath);
+                        console.log('Image URL:', url);
+                        return url;
+                      };
+                      
+                      const imageUrl = getImageUrl();
+                      
+                      return (
+                        <div className="relative aspect-square w-full rounded-md border overflow-hidden bg-muted">
+                          <img
+                            src={imageUrl}
+                            alt={viewQuery.data.name}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              console.error('Image load error:', imageUrl);
+                              console.error('Error event:', e);
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground">Failed to load image</div>';
+                              }
+                            }}
+                            onLoad={() => {
+                              console.log('Image loaded successfully:', imageUrl);
+                            }}
+                          />
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+
+                {/* Right column - Details */}
+                <div className="space-y-4">
                   <div>
-                    <div className="text-xs text-muted-foreground">Generic</div>
-                    <div>{viewQuery.data.genericName || '-'}</div>
+                    <div className="text-xs text-muted-foreground">Name</div>
+                    <div className="font-medium text-lg">{viewQuery.data.name}</div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Type</div>
-                    <div>{viewQuery.data.type || '-'}</div>
+                  
+                  {viewQuery.data.genericName && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Generic Name</div>
+                      <div>{viewQuery.data.genericName}</div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Category</div>
+                      <div className="font-medium">{viewQuery.data.category?.name || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Unit Category</div>
+                      <div className="font-medium">{viewQuery.data.unitCategory?.name || '-'}</div>
+                    </div>
+                    {viewQuery.data.manufacturer && (
+                      <div>
+                        <div className="text-xs text-muted-foreground">Manufacturer</div>
+                        <div>{viewQuery.data.manufacturer.name}</div>
+                      </div>
+                    )}
+                    {viewQuery.data.defaultUom && (
+                      <div>
+                        <div className="text-xs text-muted-foreground">Default UOM</div>
+                        <div>{viewQuery.data.defaultUom.name}{viewQuery.data.defaultUom.abbreviation ? ` (${viewQuery.data.defaultUom.abbreviation})` : ''}</div>
+                      </div>
+                    )}
+                    {viewQuery.data.purchaseUom && (
+                      <div>
+                        <div className="text-xs text-muted-foreground">Purchase UOM</div>
+                        <div>{viewQuery.data.purchaseUom.name}{viewQuery.data.purchaseUom.abbreviation ? ` (${viewQuery.data.purchaseUom.abbreviation})` : ''}</div>
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-xs text-muted-foreground">Min Level</div>
+                      <div>{viewQuery.data.minLevel ?? '-'}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Category</div>
-                    <div>{viewQuery.data.category?.name}</div>
+
+                  {viewQuery.data.description && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Description</div>
+                      <div className="text-sm whitespace-pre-wrap">{viewQuery.data.description}</div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t">
+                    <div className="text-xs text-muted-foreground mb-2">Additional Information</div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Status:</span> <span className="font-medium">{viewQuery.data.status || '-'}</span>
+                      </div>
+                      {viewQuery.data.createdAt && (
+                        <div>
+                          <span className="text-muted-foreground">Created:</span> <span>{new Date(viewQuery.data.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Manufacturer</div>
-                    <div>{viewQuery.data.manufacturer?.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">UOM</div>
-                    <div>{viewQuery.data.unitOfMeasure?.name}</div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Quantity</div>
-                    <div>{viewQuery.data.quantity}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Purchase</div>
-                    <div>{Number.isFinite(Number(viewQuery.data.purchasePrice)) ? Number(viewQuery.data.purchasePrice).toFixed(2) : '-'}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Selling</div>
-                    <div>{Number.isFinite(Number(viewQuery.data.sellingPrice)) ? Number(viewQuery.data.sellingPrice).toFixed(2) : '-'}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Description</div>
-                  <div>{viewQuery.data.description || '-'}</div>
                 </div>
               </div>
             ) : null}

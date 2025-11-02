@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useCreateManufacturer, useDeleteManufacturer, useManufacturers, useUpdateManufacturer } from '@/hooks/useManufacturers';
+import { useCreateManufacturer, useDeleteManufacturer, useManufacturers, useUpdateManufacturer } from '@/features/manufacturer/hooks/useManufacturers';
 
 export default function ManufacturersPage() {
   const [page, setPage] = useState(1);

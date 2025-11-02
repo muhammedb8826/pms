@@ -49,51 +49,50 @@ const data = {
       url: "#",
       icon: IconFolder,
       items: [
-        { title: "Products", url: "/dashboard/inventory" },
-        { title: "Add Product", url: "/dashboard/inventory/new" },
-        { title: "Categories", url: "/dashboard/categories" },
-        { title: "Manufacturers", url: "/dashboard/manufacturers" },
-        { title: "Units of Measure", url: "/dashboard/uom" },
+        { title: "Products", url: "/products" },
+        { title: "Add Product", url: "/products/new" },
+        { title: "Categories", url: "/categories" },
+        { title: "Manufacturers", url: "/manufacturers" },
       ],
     },
     {
       title: "Sales",
-      url: "/dashboard/sales",
+      url: "/sales",
       icon: IconChartBar,
     },
     {
       title: "Purchases",
-      url: "/dashboard/purchases",
+      url: "/purchases",
       icon: IconShoppingCart,
     },
     {
       title: "Credits",
-      url: "/dashboard/credits",
+      url: "/credits",
       icon: IconCreditCard,
     },
     {
       title: "Customers",
-      url: "/dashboard/customers",
+      url: "/customers",
       icon: IconUsers,
     },
     {
       title: "Suppliers",
-      url: "/dashboard/suppliers",
+      url: "/suppliers",
       icon: IconUsers,
     },
     {
       title: "Users",
-      url: "/dashboard/users",
+      url: "/users",
       icon: IconUsers,
     },
     {
       title: "Requisition",
-      url: "/dashboard/requisition",
+      url: "/requisition",
       icon: IconFilePlus,
     },
     {
       title: "Commissions",
-      url: "/dashboard/commissions",
+      url: "/commissions",
       icon: IconCurrencyDollar,
     },
   ],
@@ -150,6 +149,10 @@ const data = {
       title: "Settings",
       url: "#",
       icon: IconSettings,
+      items: [
+        { title: "Unit Categories", url: "/settings/unit-categories" },
+        { title: "Units of Measure", url: "/settings/uom" },
+      ],
     },
     {
       title: "Get Help",
@@ -165,7 +168,7 @@ const data = {
   documents: [
     {
       name: "Reports",
-      url: "/dashboard/reports",
+      url: "/reports",
       icon: IconReport,
     },
   ],

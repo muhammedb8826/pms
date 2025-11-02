@@ -78,6 +78,15 @@ class ProductService {
     const response = await axios.get(`${API_BASE_URL}/products/low-stock`, { headers: this.getAuthHeaders() });
     return response.data;
   }
+
+  async uploadProductImage(id: string, file: File): Promise<Product> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers = { ...this.getAuthHeaders(), 'Content-Type': 'multipart/form-data' } as Record<string, string>;
+    delete headers['Content-Type']; // Let axios set it automatically with boundary
+    const response = await axios.post(`${API_BASE_URL}/products/${id}/image`, formData, { headers });
+    return response.data;
+  }
 }
 
 export const productService = new ProductService();

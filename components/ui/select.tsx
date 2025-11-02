@@ -1,176 +1,323 @@
 "use client"
 
 import * as React from "react"
-import * as SelectPrimitive from "@radix-ui/react-select"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
-
+import ReactSelect, { components } from "react-select"
+import type { MenuListProps } from "react-select"
 import { cn } from "@/lib/utils"
 
-function Select({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+// Special value to represent "None" or empty selection
+export const NONE_VALUE = "__none__"
+
+export interface SelectOption {
+  value: string
+  label: string
 }
 
-function SelectGroup({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Group>) {
-  return <SelectPrimitive.Group data-slot="select-group" {...props} />
-}
-
-function SelectValue({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Value>) {
-  return <SelectPrimitive.Value data-slot="select-value" {...props} />
-}
-
-function SelectTrigger({
-  className,
-  size = "default",
-  children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
+export interface SelectProps {
+  value?: string
+  defaultValue?: string
+  onValueChange?: (value: string | undefined) => void
+  placeholder?: string
+  options?: SelectOption[]
+  disabled?: boolean
+  className?: string
+  id?: string
+  "aria-invalid"?: boolean
+  children?: React.ReactNode
   size?: "sm" | "default"
+  footerButton?: React.ReactNode
+}
+
+// Helper to extract options from children (backward compatibility)
+function extractOptionsFromChildren(children: React.ReactNode): SelectOption[] {
+  const options: SelectOption[] = []
+  
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child)) {
+      if (child.type === SelectContent) {
+        const contentProps = child.props as { children?: React.ReactNode }
+        React.Children.forEach(contentProps.children, (item) => {
+          if (React.isValidElement(item) && item.type === SelectItem) {
+            const itemProps = item.props as { value: string; children: React.ReactNode }
+            const itemValue = itemProps.value
+            const itemLabel = typeof itemProps.children === 'string' 
+              ? itemProps.children 
+              : React.Children.toArray(itemProps.children).filter(Boolean).join('')
+            
+            if (itemValue === "") {
+              options.push({ value: NONE_VALUE, label: itemLabel || "None" })
+            } else {
+              options.push({ value: itemValue, label: itemLabel })
+            }
+          }
+        })
+      } else if (child.type === SelectItem) {
+        const itemProps = child.props as { value: string; children: React.ReactNode }
+        const itemValue = itemProps.value
+        const itemLabel = typeof itemProps.children === 'string' 
+          ? itemProps.children 
+          : React.Children.toArray(itemProps.children).filter(Boolean).join('')
+        
+        if (itemValue === "") {
+          options.push({ value: NONE_VALUE, label: itemLabel || "None" })
+        } else {
+          options.push({ value: itemValue, label: itemLabel })
+        }
+      }
+    }
+  })
+  
+  return options
+}
+
+// Main Select component
+function Select({
+  value,
+  defaultValue,
+  onValueChange,
+  placeholder = "Select...",
+  options: providedOptions,
+  disabled = false,
+  className,
+  id,
+  "aria-invalid": ariaInvalid,
+  children,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  size = "default",
+  footerButton,
+  ...props
+}: SelectProps & Omit<React.ComponentProps<typeof ReactSelect>, "options" | "value" | "onChange">) {
+  const options = React.useMemo(() => {
+    if (providedOptions && providedOptions.length > 0) {
+      return providedOptions
+    }
+    if (children) {
+      return extractOptionsFromChildren(children)
+    }
+    return []
+  }, [providedOptions, children])
+
+  const currentValue = value ?? defaultValue ?? ""
+  
+  const selectedOption = React.useMemo(() => {
+    if (currentValue === "") {
+      const noneOption = options.find(opt => opt.value === NONE_VALUE)
+      return noneOption || null
+    }
+    if (currentValue === NONE_VALUE) {
+      return options.find(opt => opt.value === NONE_VALUE) || null
+    }
+    return options.find(opt => opt.value === currentValue) || null
+  }, [currentValue, options])
+
+  const handleChange = (selected: SelectOption | null) => {
+    if (!onValueChange) return
+    
+    if (selected === null || selected.value === NONE_VALUE) {
+      onValueChange(undefined)
+    } else {
+      onValueChange(selected.value)
+    }
+  }
+
+  // Extract placeholder from SelectValue if children are provided
+  const finalPlaceholder = React.useMemo(() => {
+    if (placeholder !== "Select...") return placeholder
+    if (!children) return placeholder
+    
+    let foundPlaceholder = placeholder
+    React.Children.forEach(children, (child) => {
+      if (React.isValidElement(child) && child.type === SelectTrigger) {
+        const triggerProps = child.props as { children?: React.ReactNode }
+        React.Children.forEach(triggerProps.children, (val) => {
+          if (React.isValidElement(val) && val.type === SelectValue) {
+            const valueProps = val.props as { placeholder?: string }
+            if (valueProps.placeholder) {
+              foundPlaceholder = valueProps.placeholder
+            }
+          }
+        })
+      }
+    })
+    return foundPlaceholder
+  }, [placeholder, children])
+
+  // Custom MenuList component with footer button support
+  const MenuList = (menuListProps: MenuListProps<SelectOption, false>) => {
+    return (
+      <components.MenuList {...menuListProps}>
+        {menuListProps.children}
+        {footerButton && (
+          <div className="border-t border-border p-1 bg-popover">
+            {footerButton}
+          </div>
+        )}
+      </components.MenuList>
+    )
+  }
+
+  // Inject styles once on mount with computed CSS variable values
+  React.useEffect(() => {
+    const styleId = 'react-select-styles'
+    if (document.getElementById(styleId)) return
+
+    // Get computed CSS variable values
+    const root = document.documentElement
+    const getComputedVar = (varName: string) => {
+      return getComputedStyle(root).getPropertyValue(varName).trim()
+    }
+
+    const popoverBg = getComputedVar('--popover') || 'oklch(1 0 0)'
+    const borderColor = getComputedVar('--border') || 'oklch(0.922 0 0)'
+    const accentBg = getComputedVar('--accent') || 'oklch(0.97 0 0)'
+    const accentFg = getComputedVar('--accent-foreground') || 'oklch(0.205 0 0)'
+
+    const style = document.createElement('style')
+    style.id = styleId
+    style.textContent = `
+      .react-select__menu {
+        background-color: ${popoverBg} !important;
+        border: 1px solid ${borderColor} !important;
+        border-radius: 0.375rem !important;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+        z-index: 9999 !important;
+        margin-top: 0.25rem !important;
+        opacity: 1 !important;
+      }
+      .react-select__menu-list {
+        background-color: ${popoverBg} !important;
+        padding: 0.25rem !important;
+        max-height: 300px !important;
+        opacity: 1 !important;
+      }
+      .react-select__option {
+        background-color: ${popoverBg} !important;
+        opacity: 1 !important;
+      }
+      .react-select__option--is-focused {
+        background-color: ${accentBg} !important;
+        color: ${accentFg} !important;
+        opacity: 1 !important;
+      }
+      .react-select__option--is-selected {
+        background-color: ${accentBg} !important;
+        opacity: 0.7 !important;
+      }
+      .react-select__option:active {
+        background-color: ${accentBg} !important;
+        opacity: 1 !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    return () => {
+      const existingStyle = document.getElementById(styleId)
+      if (existingStyle) {
+        existingStyle.remove()
+      }
+    }
+  }, [])
+
+  return (
+    <ReactSelect<SelectOption>
+      id={id}
+      value={selectedOption}
+      onChange={handleChange}
+      options={options}
+      placeholder={finalPlaceholder}
+      isDisabled={disabled}
+      isSearchable={true}
+      isClearable={false}
+      menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+      menuPosition="absolute"
+      className={cn("react-select-container", className)}
+      classNamePrefix="react-select"
+      components={footerButton ? { MenuList } : undefined}
+      aria-invalid={ariaInvalid}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(props as any)}
+    />
+  )
+}
+
+// Compatibility components for backward compatibility
+function SelectContent({ 
+  children
+}: { 
+  children?: React.ReactNode
+  className?: string
+  position?: "popper" | "item-aligned"
+  align?: "start" | "center" | "end"
+}) {
+  return <>{children}</>
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function SelectItem(_: { 
+  value: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function SelectTrigger(_: { 
+  children?: React.ReactNode
+  className?: string
+  size?: "sm" | "default"
+  id?: string
+}) {
+  return null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function SelectValue(_: { 
+  placeholder?: string
+}) {
+  return null
+}
+
+function SelectGroup({ 
+  children
+}: { 
+  children?: React.ReactNode
+}) {
+  return <>{children}</>
+}
+
+function SelectLabel({ 
+  className, 
+  children
+}: { 
+  className?: string
+  children?: React.ReactNode
 }) {
   return (
-    <SelectPrimitive.Trigger
-      data-slot="select-trigger"
-      data-size={size}
-      className={cn(
-        "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
+    <div className={cn("text-muted-foreground px-2 py-1.5 text-xs", className)}>
       {children}
-      <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-4 opacity-50" />
-      </SelectPrimitive.Icon>
-    </SelectPrimitive.Trigger>
+    </div>
   )
 }
 
-function SelectContent({
-  className,
-  children,
-  position = "popper",
-  align = "center",
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Content>) {
+function SelectSeparator({ 
+  className
+}: { 
+  className?: string
+}) {
   return (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Content
-        data-slot="select-content"
-        className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
-          position === "popper" &&
-            "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
-          className
-        )}
-        position={position}
-        align={align}
-        {...props}
-      >
-        <SelectScrollUpButton />
-        <SelectPrimitive.Viewport
-          className={cn(
-            "p-1",
-            position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
-          )}
-        >
-          {children}
-        </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
-      </SelectPrimitive.Content>
-    </SelectPrimitive.Portal>
-  )
-}
-
-function SelectLabel({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Label>) {
-  return (
-    <SelectPrimitive.Label
-      data-slot="select-label"
-      className={cn("text-muted-foreground px-2 py-1.5 text-xs", className)}
-      {...props}
+    <div 
+      className={cn("bg-border pointer-events-none -mx-1 my-1 h-px", className)} 
     />
   )
 }
 
-function SelectItem({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
-  return (
-    <SelectPrimitive.Item
-      data-slot="select-item"
-      className={cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className
-      )}
-      {...props}
-    >
-      <span className="absolute right-2 flex size-3.5 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
-        </SelectPrimitive.ItemIndicator>
-      </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-    </SelectPrimitive.Item>
-  )
+function SelectScrollUpButton() {
+  return null
 }
 
-function SelectSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
-  return (
-    <SelectPrimitive.Separator
-      data-slot="select-separator"
-      className={cn("bg-border pointer-events-none -mx-1 my-1 h-px", className)}
-      {...props}
-    />
-  )
-}
-
-function SelectScrollUpButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
-  return (
-    <SelectPrimitive.ScrollUpButton
-      data-slot="select-scroll-up-button"
-      className={cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      )}
-      {...props}
-    >
-      <ChevronUpIcon className="size-4" />
-    </SelectPrimitive.ScrollUpButton>
-  )
-}
-
-function SelectScrollDownButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
-  return (
-    <SelectPrimitive.ScrollDownButton
-      data-slot="select-scroll-down-button"
-      className={cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      )}
-      {...props}
-    >
-      <ChevronDownIcon className="size-4" />
-    </SelectPrimitive.ScrollDownButton>
-  )
+function SelectScrollDownButton() {
+  return null
 }
 
 export {

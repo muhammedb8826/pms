@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useState, type PropsWithChildren } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import React, { useMemo, type PropsWithChildren } from 'react';
+import { Provider } from 'react-redux';
+import { makeStore } from '@/lib/store';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export function Providers({ children }: PropsWithChildren) {
-  const [queryClient] = useState(() => new QueryClient());
+  const store = useMemo(() => makeStore(), []);
+
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClient}>
+      <Provider store={store}>
         {children}
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
+      </Provider>
     </AuthProvider>
   );
 }

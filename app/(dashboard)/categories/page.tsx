@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { Category } from '@/types/category';
-import { useCategories, useDeleteCategory } from '@/hooks/useCategories';
-import { CategoryForm } from '@/components/CategoryForm';
+import { Category } from '@/features/category/types';
+import { useCategories, useDeleteCategory, useCategory } from '@/features/category/hooks/useCategories';
+import { CategoryForm } from '@/features/category/components/CategoryForm';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
-import { useCategory } from '@/hooks/useCategories';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function Page() {
