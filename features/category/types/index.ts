@@ -9,6 +9,8 @@ export interface Category {
   name: string;
   description?: string;
   products?: ProductSummary[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateCategoryDto {

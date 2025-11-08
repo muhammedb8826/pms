@@ -72,10 +72,39 @@ export function useAllCategories() {
   return useGetAllCategoriesQuery();
 }
 
+function unwrapCategory<T extends Category>(response: unknown): T {
+  if (!response || typeof response !== 'object') throw new Error('Empty category response');
+  if ('id' in response && typeof (response as { id?: unknown }).id === 'string') return response as T;
+  if ('category' in response) {
+    const category = (response as { category?: unknown }).category;
+    if (category && typeof category === 'object' && 'id' in category) {
+      return category as T;
+    }
+  }
+  if ('data' in response) {
+    const data = (response as { data?: unknown }).data;
+    if (data && typeof data === 'object') {
+      if ('id' in data && typeof (data as { id?: unknown }).id === 'string') {
+        return data as T;
+      }
+      if ('data' in data) {
+        const inner = (data as { data?: unknown }).data;
+        if (inner && typeof inner === 'object' && 'id' in inner) {
+          return inner as T;
+        }
+      }
+    }
+  }
+  throw new Error('Unable to unwrap category response');
+}
+
 export function useCreateCategory() {
   const [createCategory, result] = useCreateCategoryMutation();
   return {
-    mutateAsync: createCategory,
+    mutateAsync: async (dto: Parameters<typeof createCategory>[0]) => {
+      const response = await createCategory(dto).unwrap();
+      return unwrapCategory(response);
+    },
     isPending: result.isLoading,
     ...result,
   };
@@ -84,8 +113,10 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
   const [updateCategory, result] = useUpdateCategoryMutation();
   return {
-    mutateAsync: ({ id, dto }: { id: string; dto: Parameters<typeof updateCategory>[0]['data'] }) =>
-      updateCategory({ id, data: dto }),
+    mutateAsync: async ({ id, dto }: { id: string; dto: Parameters<typeof updateCategory>[0]['data'] }) => {
+      const response = await updateCategory({ id, data: dto }).unwrap();
+      return unwrapCategory(response);
+    },
     isPending: result.isLoading,
     ...result,
   };
@@ -94,7 +125,10 @@ export function useUpdateCategory() {
 export function useDeleteCategory() {
   const [deleteCategory, result] = useDeleteCategoryMutation();
   return {
-    mutateAsync: deleteCategory,
+    mutateAsync: async (id: Parameters<typeof deleteCategory>[0]) => {
+      const response = await deleteCategory(id).unwrap();
+      return response;
+    },
     isPending: result.isLoading,
     ...result,
   };

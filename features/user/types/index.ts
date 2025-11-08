@@ -3,17 +3,20 @@
 export const USER_ROLES = [
   'USER',
   'ADMIN',
-  'RECEPTION',
-  'GRAPHIC_DESIGNER',
-  'OPERATOR',
-  'FINANCE',
-  'STORE_REPRESENTATIVE',
-  'PURCHASER',
+  'PHARMACIST_IN_CHARGE',
+  'PHARMACIST',
+  'PHARMACY_TECHNICIAN',
+  'STORE_MANAGER',
+  'CASHIER',
+  'INVENTORY_CONTROLLER',
+  'PROCUREMENT_OFFICER',
+  'FINANCE_OFFICER',
+  'DELIVERY_PERSON',
 ] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
 
-export const USER_GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
+export const USER_GENDERS = ['MALE', 'FEMALE'] as const;
 export type UserGender = (typeof USER_GENDERS)[number];
 
 export interface User {

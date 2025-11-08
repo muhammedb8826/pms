@@ -17,7 +17,6 @@ import { ImageUpload } from "@/components/ui/image-upload";
 const genderOptions = [
   { label: "Male", value: "MALE" },
   { label: "Female", value: "FEMALE" },
-  { label: "Other", value: "OTHER" },
 ];
 
 interface UpdateAccountResponseData {

@@ -59,10 +59,47 @@ export function useAllManufacturers(options?: { search?: string; sortBy?: string
   return useGetAllManufacturersQuery(options || undefined);
 }
 
+function unwrapManufacturer(response: unknown): Manufacturer {
+  if (!response || typeof response !== 'object') {
+    throw new Error('Empty manufacturer response');
+  }
+
+  if ('id' in response && typeof (response as { id?: unknown }).id === 'string') {
+    return response as Manufacturer;
+  }
+
+  if ('manufacturer' in response) {
+    const manufacturer = (response as { manufacturer?: unknown }).manufacturer;
+    if (manufacturer && typeof manufacturer === 'object' && 'id' in manufacturer) {
+      return manufacturer as Manufacturer;
+    }
+  }
+
+  if ('data' in response) {
+    const data = (response as { data?: unknown }).data;
+    if (data && typeof data === 'object') {
+      if ('id' in data && typeof (data as { id?: unknown }).id === 'string') {
+        return data as Manufacturer;
+      }
+      if ('data' in data) {
+        const inner = (data as { data?: unknown }).data;
+        if (inner && typeof inner === 'object' && 'id' in inner) {
+          return inner as Manufacturer;
+        }
+      }
+    }
+  }
+
+  throw new Error('Unable to unwrap manufacturer response');
+}
+
 export function useCreateManufacturer() {
   const [createManufacturer, result] = useCreateManufacturerMutation();
   return {
-    mutateAsync: createManufacturer,
+    mutateAsync: async (dto: Parameters<typeof createManufacturer>[0]) => {
+      const response = await createManufacturer(dto).unwrap();
+      return unwrapManufacturer(response);
+    },
     isPending: result.isLoading,
     ...result,
   };
@@ -71,8 +108,10 @@ export function useCreateManufacturer() {
 export function useUpdateManufacturer() {
   const [updateManufacturer, result] = useUpdateManufacturerMutation();
   return {
-    mutateAsync: ({ id, dto }: { id: string; dto: Parameters<typeof updateManufacturer>[0]['data'] }) =>
-      updateManufacturer({ id, data: dto }),
+    mutateAsync: async ({ id, dto }: { id: string; dto: Parameters<typeof updateManufacturer>[0]['data'] }) => {
+      const response = await updateManufacturer({ id, data: dto }).unwrap();
+      return unwrapManufacturer(response);
+    },
     isPending: result.isLoading,
     ...result,
   };
@@ -81,7 +120,10 @@ export function useUpdateManufacturer() {
 export function useDeleteManufacturer() {
   const [deleteManufacturer, result] = useDeleteManufacturerMutation();
   return {
-    mutateAsync: deleteManufacturer,
+    mutateAsync: async (id: Parameters<typeof deleteManufacturer>[0]) => {
+      const response = await deleteManufacturer(id).unwrap();
+      return response;
+    },
     isPending: result.isLoading,
     ...result,
   };

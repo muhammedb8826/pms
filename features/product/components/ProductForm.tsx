@@ -172,58 +172,26 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
       let productId: string;
       
       if (product) {
-        await updateMutation.mutateAsync({ id: product.id, dto: parsed.data });
+        const updated = await updateMutation.mutateAsync({ id: product.id, dto: parsed.data });
+        productId = updated.id;
         handleApiSuccess('Product updated successfully');
-        productId = product.id;
       } else {
-        const response = await createMutation.mutateAsync(parsed.data);
-        console.log('Product creation response:', response);
-        console.log('Product creation response type:', typeof response);
-        if (response && typeof response === 'object') {
-          console.log('Product creation response keys:', Object.keys(response));
-          console.log('Product creation response has id?', 'id' in response);
-          // @ts-expect-error - RTK Query mutation result type
-          console.log('Product creation response.id:', response.id);
-        }
-        
-        // RTK Query mutateAsync should return the data directly (Product object)
-        // Extract ID from response - handle both direct Product and wrapped structures
-        const responseObj = response as unknown as Product | { data?: Product } | { product?: Product };
-        const extractedId = 'id' in responseObj && typeof responseObj.id === 'string' 
-          ? responseObj.id
-          : 'data' in responseObj && responseObj.data && 'id' in responseObj.data
-          ? responseObj.data.id
-          : 'product' in responseObj && responseObj.product && 'id' in responseObj.product
-          ? responseObj.product.id
-          : null;
-        
-        if (!extractedId || typeof extractedId !== 'string') {
-          console.error('Failed to extract product ID from response:', response);
-          throw new Error('Product was created but ID could not be extracted from the response');
-        }
-        
-        productId = extractedId;
-        console.log('Extracted product ID:', productId);
+        const created = await createMutation.mutateAsync(parsed.data);
+        productId = created.id;
         handleApiSuccess('Product created successfully');
       }
       
       // Upload image if a new one was selected
       if (imageFile) {
-        console.log('Uploading image for product:', productId);
-        console.log('Image file:', imageFile.name, imageFile.size, imageFile.type);
         try {
-          const uploadResult = await uploadImageMutation.mutateAsync({ id: productId, file: imageFile });
-          console.log('Image upload result:', uploadResult);
+          await uploadImageMutation.mutateAsync({ id: productId, file: imageFile });
           handleApiSuccess('Product image uploaded successfully');
         } catch (imageErr) {
           // Don't fail the whole operation if image upload fails
-          console.error('Image upload failed:', imageErr);
           handleApiError(imageErr, {
             defaultMessage: 'Product saved but image upload failed',
           });
         }
-      } else {
-        console.log('No image file selected for upload');
       }
       
       onSuccess();
@@ -465,9 +433,12 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
                 setManuError(null);
                 if (!manuForm.name.trim()) { setManuError('Name is required'); return; }
                 try {
-                  const created = await createManu.mutateAsync({ name: manuForm.name.trim(), contact: manuForm.contact, address: manuForm.address });
+                  const created = await createManu.mutateAsync({
+                    name: manuForm.name.trim(),
+                    contact: manuForm.contact,
+                    address: manuForm.address,
+                  });
                   handleApiSuccess('Manufacturer created');
-                  // @ts-expect-error - RTK Query mutation result type
                   setField('manufacturerId', created.id);
                   setOpenNewManu(false);
                 } catch (e: unknown) {

@@ -1,405 +1,587 @@
-"use client";
+'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import type { ColumnDef } from '@tanstack/react-table';
+import {
+  IconDotsVertical,
+  IconFileDownload,
+  IconPencil,
+  IconPlus,
+  IconSettings,
+  IconUpload,
+} from '@tabler/icons-react';
+import Image from 'next/image';
+import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useDeleteProduct, useProduct, useProducts } from '@/features/product/hooks/useProducts';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription as AlertDesc,
+  AlertDialogFooter as AlertFooter,
+  AlertDialogHeader as AlertHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter as DrawerFooterSection,
+  DrawerHeader as DrawerHeaderSection,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import { ListDataTable } from '@/components/list-data-table';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
-import { useImportProductsSimpleMutation, useLazyDownloadProductTemplateQuery } from '@/features/product/api/productApi';
-import Image from 'next/image';
+import { useProducts, useProduct, useDeleteProduct } from '@/features/product/hooks/useProducts';
+import {
+  useImportProductsSimpleMutation,
+  useLazyDownloadProductTemplateQuery,
+} from '@/features/product/api/productApi';
+import type { Product } from '@/features/product/types';
+
+function resolveImageUrl(path?: string | null) {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const base = process.env.NEXT_PUBLIC_API_URL;
+  if (base) {
+    try {
+      const url = new URL(base);
+      return `${url.origin}${path.startsWith('/') ? path : `/${path}`}`;
+    } catch {
+      // fall back to window origin
+    }
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
+  }
+  return path;
+}
+
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 export default function ProductsPage() {
+  const router = useRouter();
+  const isMobile = useIsMobile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [page, setPage] = useState(1);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
-  const { products, total, loading, error, refetch } = useProducts(page, limit, { search, sortBy, sortOrder });
 
-
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewId, setViewId] = useState<string | null>(null);
-  const viewQuery = useProduct(viewId ?? undefined);
-  
-  // Refetch product data when view modal opens to get latest data including image
-  useEffect(() => {
-    if (viewOpen && viewId) {
-      // Small delay to ensure modal is open before refetching
-      const timer = setTimeout(() => {
-        if (viewQuery.refetch) {
-          viewQuery.refetch();
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOpen, viewId]);
+  const { products, total, loading, error, refetch } = useProducts(page, pageSize, {
+    search,
+    sortBy,
+    sortOrder,
+  });
+  const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize) || 1), [total, pageSize]);
 
   const deleteMutation = useDeleteProduct();
   const [importProducts] = useImportProductsSimpleMutation();
   const [downloadTemplate] = useLazyDownloadProductTemplateQuery();
 
-  const canNext = useMemo(() => ((page - 1) * limit + products.length) < total, [page, limit, products.length, total]);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
+  const viewQuery = useProduct(viewId ?? undefined);
 
-  async function handleDelete(id: string) {
-    try {
-      const result = await deleteMutation.mutateAsync(id);
-      
-      // Check if result contains an error (RTK Query may return errors instead of throwing)
-      if (result && typeof result === 'object' && 'error' in result && result.error) {
-        handleApiError(result.error, {
-          defaultMessage: 'Failed to delete product',
-        });
-        return; // Don't refetch or show success
+  const handleView = useCallback((product: Product) => {
+    setViewId(product.id);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback(
+    (product: Product) => {
+      router.push(`/products/${product.id}/edit`);
+    },
+    [router],
+  );
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        const result = await deleteMutation.mutateAsync(id);
+        if (result && typeof result === 'object' && 'error' in result && result.error) {
+          handleApiError(result.error, { defaultMessage: 'Failed to delete product' });
+          return;
+        }
+        refetch();
+        handleApiSuccess('Product deleted successfully');
+      } catch (err) {
+        handleApiError(err, { defaultMessage: 'Failed to delete product' });
       }
-      
-      // Only refetch and show success if mutation succeeded
-      refetch();
-      handleApiSuccess('Product deleted successfully');
-    } catch (err) {
-      // Extract and display the actual API error message
-      handleApiError(err, {
-        defaultMessage: 'Failed to delete product',
-      });
-      // Don't refetch on error - product still exists
-    }
-  }
+    },
+    [deleteMutation, refetch],
+  );
 
-  if (loading) return <div className="p-4">Loading…</div>;
-  if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
+  const columns = useMemo<ColumnDef<Product>[]>(() => {
+    return [
+      {
+        accessorKey: 'name',
+        header: 'Product',
+        cell: ({ row }) => {
+          const product = row.original;
+          return (
+            <div className="flex flex-col gap-0.5">
+              <button
+                type="button"
+                onClick={() => handleView(product)}
+                className="text-sm font-semibold text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                {product.name}
+              </button>
+              {product.genericName ? (
+                <span className="text-xs text-muted-foreground">{product.genericName}</span>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'category',
+        header: 'Category',
+        cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.category?.name ?? '—'}</span>,
+      },
+      {
+        accessorKey: 'manufacturer',
+        header: 'Manufacturer',
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">{row.original.manufacturer?.name ?? '—'}</span>
+        ),
+      },
+      {
+        accessorKey: 'defaultUom',
+        header: 'Default UOM',
+        cell: ({ row }) => {
+          const uom = row.original.defaultUom;
+          if (!uom) return <span className="text-sm text-muted-foreground">—</span>;
+          return (
+            <span className="text-sm text-muted-foreground">
+              {uom.name}
+              {uom.abbreviation ? ` (${uom.abbreviation})` : ''}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'quantity',
+        header: () => <div className="text-right">Qty</div>,
+        cell: ({ row }) => <div className="text-right text-sm font-medium tabular-nums">{row.original.quantity}</div>,
+      },
+      {
+        accessorKey: 'purchasePrice',
+        header: () => <div className="hidden text-right lg:block">Buy</div>,
+        cell: ({ row }) => (
+          <div className="hidden text-right text-sm text-muted-foreground tabular-nums lg:block">
+            {currencyFormatter.format(Number(row.original.purchasePrice ?? 0))}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'sellingPrice',
+        header: () => <div className="text-right">Sell</div>,
+        cell: ({ row }) => (
+          <div className="text-right text-sm font-medium tabular-nums">
+            {currencyFormatter.format(Number(row.original.sellingPrice ?? 0))}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Badge variant={row.original.status?.toLowerCase() === 'active' ? 'default' : 'outline'}>
+            {row.original.status ?? '—'}
+          </Badge>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => (
+          <div className="flex justify-end text-muted-foreground">
+            <IconSettings className="size-4" aria-hidden />
+          </div>
+        ),
+        cell: ({ row }) => {
+          const product = row.original;
+          return (
+            <div className="flex justify-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground data-[state=open]:bg-muted"
+                    aria-label="Open product actions"
+                  >
+                    <IconDotsVertical />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      handleView(product);
+                    }}
+                  >
+                    View details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      handleEdit(product);
+                    }}
+                  >
+                    Edit product
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem
+                        onSelect={(event) => event.preventDefault()}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        Delete product
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertHeader>
+                        <AlertDialogTitle>Delete product?</AlertDialogTitle>
+                      </AlertHeader>
+                      <AlertDesc>
+                        This action will permanently delete <span className="font-medium">{product.name}</span>. This
+                        cannot be undone.
+                      </AlertDesc>
+                      <AlertFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(product.id)} disabled={deleteMutation.isPending}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+      },
+    ];
+  }, [handleEdit, handleView, handleDelete, deleteMutation.isPending]);
+
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleImportChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.currentTarget.files?.[0];
+      if (!file) return;
+      try {
+        if (!/\.(xlsx|xls)$/i.test(file.name)) {
+          toast.error('Please select an Excel file (.xlsx or .xls)');
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error('File size must be less than 10MB');
+          return;
+        }
+        const result = await importProducts(file).unwrap();
+        if (result.success > 0) {
+          toast.success(`Imported ${result.success} products`);
+        }
+        if (result.failed > 0) {
+          toast.error(`Failed to import ${result.failed} products`);
+        }
+        refetch();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Import failed';
+        toast.error(message);
+      } finally {
+        event.currentTarget.value = '';
+      }
+    },
+    [importProducts, refetch],
+  );
+
+  const handleDownloadTemplate = useCallback(async () => {
+    try {
+      const { data: blob } = await downloadTemplate();
+      if (!blob) {
+        toast.error('Template not available');
+        return;
+      }
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'product-import-template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download template');
+    }
+  }, [downloadTemplate]);
+
+  if (error) {
+    return <div className="p-4 text-sm text-destructive">Error: {error}</div>;
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4 overflow-x-hidden">
-      <div className="flex items-start justify-between gap-2 sm:items-center">
-        <h1 className="text-xl font-semibold">Products</h1>
-        <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-          <Input placeholder="Search..." className="w-full min-w-0 sm:w-48" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v || 'name')}>
+      <div className="flex flex-col gap-4 rounded-xl border bg-background p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
+          <div>
+            <h1 className="text-xl font-semibold">Products</h1>
+            <p className="text-sm text-muted-foreground">Manage your product catalogue, pricing, and availability.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Total products: {total}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportChange} />
+            <Button variant="outline" onClick={handleImportClick}>
+              <IconUpload className="mr-2 size-4" />
+              Import
+            </Button>
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <IconFileDownload className="mr-2 size-4" />
+              Template
+            </Button>
+            <Button onClick={() => router.push('/products/new')}>
+              <IconPlus className="mr-2 size-4" />
+              Add Product
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Input
+            placeholder="Search products..."
+            className="w-full min-w-0 sm:w-56"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+          />
+          <Select
+            value={sortBy}
+            onValueChange={(value) => {
+              setSortBy(value || 'name');
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Name</SelectItem>
               <SelectItem value="genericName">Generic</SelectItem>
-              <SelectItem value="purchasePrice">Purchase Price</SelectItem>
-              <SelectItem value="sellingPrice">Selling Price</SelectItem>
+              <SelectItem value="purchasePrice">Purchase price</SelectItem>
+              <SelectItem value="sellingPrice">Selling price</SelectItem>
               <SelectItem value="quantity">Quantity</SelectItem>
               <SelectItem value="status">Status</SelectItem>
               <SelectItem value="createdAt">Created</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as 'ASC' | 'DESC')}>
+          <Select
+            value={sortOrder}
+            onValueChange={(value) => {
+              const next = (value?.toUpperCase() as 'ASC' | 'DESC') || 'ASC';
+              setSortOrder(next);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-32">
               <SelectValue placeholder="Order" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ASC">Asc</SelectItem>
-              <SelectItem value="DESC">Desc</SelectItem>
+              <SelectItem value="ASC">Ascending</SelectItem>
+              <SelectItem value="DESC">Descending</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-2">
-            <Button asChild>
-              <a href="/products/new">Add Product</a>
-            </Button>
-            <input
-              id="product-import-input"
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={async (e) => {
-                const inputEl = e.currentTarget;
-                const file = inputEl.files?.[0];
-                if (!file) return;
-                try {
-                  if (!file.name.match(/\.(xlsx|xls)$/)) {
-                    toast.error('Please select an Excel file (.xlsx or .xls)');
-                    return;
-                  }
-                  if (file.size > 10 * 1024 * 1024) {
-                    toast.error('File size must be less than 10MB');
-                    return;
-                  }
-                  const res = await importProducts(file).unwrap();
-                  if (res.success > 0) {
-                    toast.success(`Successfully imported ${res.success} products`);
-                  }
-                  if (res.failed > 0) {
-                    toast.error(`Failed to import ${res.failed} products`);
-                    console.error(res.errors);
-                  }
-                  refetch();
-                } catch (err) {
-                  const message = err instanceof Error ? err.message : 'Import failed';
-                  toast.error(message);
-                } finally {
-                  inputEl.value = '';
-                }
-              }}
-            />
-            <Button variant="outline" onClick={() => document.getElementById('product-import-input')?.click()}>Import</Button>
-            <Button variant="outline" onClick={async () => {
-              try {
-                const { data: blob } = await downloadTemplate();
-                if (!blob) {
-                  toast.error('Template not available');
-                  return;
-                }
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'product-import-template.xlsx';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-              } catch {
-                toast.error('Failed to download template');
-              }
-            }}>Template</Button>
-          </div>
         </div>
+
+        <ListDataTable
+          columns={columns}
+          data={products}
+          loading={loading}
+          pageIndex={page - 1}
+          pageSize={pageSize}
+          pageCount={pageCount}
+          onPageChange={(index) => {
+            const nextPage = Math.min(Math.max(index + 1, 1), pageCount);
+            setPage(nextPage);
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          emptyMessage="No products found"
+        />
       </div>
 
-
-      <div className="rounded-md border overflow-x-auto">
-        <Table className="min-w-[900px]">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead className="hidden md:table-cell">Generic</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="hidden lg:table-cell">Manufacturer</TableHead>
-              <TableHead className="hidden lg:table-cell">UOM</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="hidden md:table-cell text-right">Buy</TableHead>
-              <TableHead className="text-right">Sell</TableHead>
-              <TableHead className="hidden md:table-cell">Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {products.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell>{p.name}</TableCell>
-                <TableCell className="hidden md:table-cell">{p.genericName || '-'}</TableCell>
-                <TableCell>{p.category?.name || '-'}</TableCell>
-                <TableCell className="hidden lg:table-cell">{p.manufacturer?.name || '-'}</TableCell>
-                <TableCell className="hidden lg:table-cell">{p.unitCategory?.name || '-'}</TableCell>
-                <TableCell className="text-right">{p.quantity}</TableCell>
-                <TableCell className="hidden md:table-cell text-right">{Number.isFinite(Number(p.purchasePrice)) ? Number(p.purchasePrice).toFixed(2) : '-'}</TableCell>
-                <TableCell className="text-right">{Number.isFinite(Number(p.sellingPrice)) ? Number(p.sellingPrice).toFixed(2) : '-'}</TableCell>
-                <TableCell className="hidden md:table-cell">{p.status}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1.5">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button aria-label="View" variant="ghost" size="sm" onClick={() => { setViewId(p.id); setViewOpen(true); }}>
-                          <IconEye />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>View</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button aria-label="Edit" variant="outline" size="sm" asChild>
-                          <a href={`/products/${p.id}/edit`}>
-                            <IconPencil />
-                          </a>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Edit</TooltipContent>
-                    </Tooltip>
-                    <AlertDialog>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <AlertDialogTrigger asChild>
-                            <Button aria-label="Delete" variant="destructive" size="sm" disabled={deleteMutation.isPending}>
-                              <IconTrash />
-                            </Button>
-                          </AlertDialogTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                      </Tooltip>
-                      <AlertDialogContent>
-                        <AlertHeader>
-                          <AlertDialogTitle>Delete product?</AlertDialogTitle>
-                        </AlertHeader>
-                        <AlertDesc>
-                          This action will permanently delete <span className="font-medium">{p.name}</span>. This cannot be undone.
-                        </AlertDesc>
-                        <AlertFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(p.id)} disabled={deleteMutation.isPending}>Delete</AlertDialogAction>
-                        </AlertFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Showing {(page - 1) * limit + products.length} of {total}</p>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-          <span className="text-sm">Page {page}</span>
-          <Button variant="outline" onClick={() => setPage((p) => p + 1)} disabled={!canNext}>Next</Button>
-        </div>
-      </div>
-
-      <Dialog open={viewOpen} onOpenChange={(o) => { setViewOpen(o); if (!o) setViewId(null); }}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Product Details</DialogTitle>
-            {viewQuery.data?.id ? (
-              <DialogDescription>ID: {viewQuery.data.id}</DialogDescription>
+      <Drawer
+        open={viewOpen}
+        onOpenChange={(open) => {
+          setViewOpen(open);
+          if (!open) {
+            setViewId(null);
+          }
+        }}
+        direction={isMobile ? 'bottom' : 'right'}
+      >
+        <DrawerContent className="max-h-[95vh] sm:max-w-lg">
+          <DrawerHeaderSection className="gap-1">
+            <DrawerTitle>{viewQuery.data?.name ?? 'Product details'}</DrawerTitle>
+            {viewQuery.data?.genericName ? (
+              <DrawerDescription>{viewQuery.data.genericName}</DrawerDescription>
             ) : null}
-          </DialogHeader>
-          <div className="space-y-4">
+          </DrawerHeaderSection>
+          <div className="space-y-6 px-4 pb-4">
             {viewQuery.isLoading ? (
-              <div>Loading…</div>
+              <div className="text-sm text-muted-foreground">Loading…</div>
             ) : viewQuery.error ? (
-              <div className="text-red-600 text-sm">{viewQuery.error instanceof Error ? viewQuery.error.message : 'Failed to load'}</div>
+              <div className="text-sm text-destructive">
+                {viewQuery.error instanceof Error ? viewQuery.error.message : 'Failed to load product'}
+              </div>
             ) : viewQuery.data ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left column - Image */}
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-2">Product Image</div>
-                    {(() => {
-                      console.log('Full product data:', viewQuery.data);
-                      console.log('Product image field:', viewQuery.data.image);
-                      const imagePath = viewQuery.data.image;
-                      if (!imagePath) {
-                        console.log('Product image is null/undefined');
-                        return (
-                          <div className="aspect-square w-full rounded-md border flex items-center justify-center bg-muted text-muted-foreground">
-                            No image
-                          </div>
-                        );
-                      }
-                      
-                      const getImageUrl = () => {
-                        if (imagePath.startsWith('http')) return imagePath;
-                        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.qenenia.com/api/v1';
-                        const baseUrl = apiBase.replace('/api/v1', '');
-                        const url = imagePath.startsWith('/') ? `${baseUrl}${imagePath}` : `${baseUrl}/${imagePath}`;
-                        console.log('Image path:', imagePath);
-                        console.log('Image URL:', url);
-                        return url;
-                      };
-                      
-                      const imageUrl = getImageUrl();
-                      
-                      return (
-                        <div className="relative aspect-square w-full rounded-md border overflow-hidden bg-muted">
-                          <Image
-                            width={100}
-                            height={100}
-                            src={imageUrl}
-                            alt={viewQuery.data.name}
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground">Failed to load image</div>';
-                              }
-                            }}
-                            onLoad={() => {
-                              console.log('Image loaded successfully:', imageUrl);
-                            }}
-                          />
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                {/* Right column - Details */}
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Name</div>
-                    <div className="font-medium text-lg">{viewQuery.data.name}</div>
-                  </div>
-                  
-                  {viewQuery.data.genericName && (
-                    <div>
-                      <div className="text-xs text-muted-foreground">Generic Name</div>
-                      <div>{viewQuery.data.genericName}</div>
+              <>
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <div className="mb-2 text-xs text-muted-foreground">Product image</div>
+                  {viewQuery.data.image ? (
+                    <div className="relative aspect-square w-full overflow-hidden rounded-md bg-background">
+                      <Image
+                        fill
+                        src={resolveImageUrl(viewQuery.data.image)}
+                        alt={viewQuery.data.name}
+                        className="object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-square w-full items-center justify-center rounded-md border bg-background text-sm text-muted-foreground">
+                      No image available
                     </div>
                   )}
+                </div>
 
+                <div className="grid gap-4 text-sm">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Category</div>
+                    <div className="font-medium text-foreground">{viewQuery.data.category?.name ?? '—'}</div>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <div className="text-xs text-muted-foreground">Category</div>
-                      <div className="font-medium">{viewQuery.data.category?.name || '-'}</div>
+                      <div className="text-xs text-muted-foreground">Manufacturer</div>
+                      <div className="font-medium text-foreground">
+                        {viewQuery.data.manufacturer?.name ?? '—'}
+                      </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Unit Category</div>
-                      <div className="font-medium">{viewQuery.data.unitCategory?.name || '-'}</div>
+                      <div className="text-xs text-muted-foreground">Default UOM</div>
+                      <div className="font-medium text-foreground">
+                        {viewQuery.data.defaultUom
+                          ? `${viewQuery.data.defaultUom.name}${
+                              viewQuery.data.defaultUom.abbreviation
+                                ? ` (${viewQuery.data.defaultUom.abbreviation})`
+                                : ''
+                            }`
+                          : '—'}
+                      </div>
                     </div>
-                    {viewQuery.data.manufacturer && (
-                      <div>
-                        <div className="text-xs text-muted-foreground">Manufacturer</div>
-                        <div>{viewQuery.data.manufacturer.name}</div>
-                      </div>
-                    )}
-                    {viewQuery.data.defaultUom && (
-                      <div>
-                        <div className="text-xs text-muted-foreground">Default UOM</div>
-                        <div>{viewQuery.data.defaultUom.name}{viewQuery.data.defaultUom.abbreviation ? ` (${viewQuery.data.defaultUom.abbreviation})` : ''}</div>
-                      </div>
-                    )}
-                    {viewQuery.data.purchaseUom && (
-                      <div>
-                        <div className="text-xs text-muted-foreground">Purchase UOM</div>
-                        <div>{viewQuery.data.purchaseUom.name}{viewQuery.data.purchaseUom.abbreviation ? ` (${viewQuery.data.purchaseUom.abbreviation})` : ''}</div>
-                      </div>
-                    )}
                     <div>
-                      <div className="text-xs text-muted-foreground">Min Level</div>
-                      <div>{viewQuery.data.minLevel ?? '-'}</div>
+                      <div className="text-xs text-muted-foreground">Quantity</div>
+                      <div className="font-medium tabular-nums">{viewQuery.data.quantity}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Min level</div>
+                      <div className="font-medium tabular-nums">{viewQuery.data.minLevel ?? '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Purchase price</div>
+                      <div className="font-medium tabular-nums">
+                        {currencyFormatter.format(Number(viewQuery.data.purchasePrice ?? 0))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Selling price</div>
+                      <div className="font-medium tabular-nums">
+                        {currencyFormatter.format(Number(viewQuery.data.sellingPrice ?? 0))}
+                      </div>
                     </div>
                   </div>
-
-                  {viewQuery.data.description && (
+                  {viewQuery.data.description ? (
                     <div>
-                      <div className="text-xs text-muted-foreground">Description</div>
-                      <div className="text-sm whitespace-pre-wrap">{viewQuery.data.description}</div>
+                      <div className="mb-1 text-xs text-muted-foreground">Description</div>
+                      <p className="whitespace-pre-wrap text-foreground">{viewQuery.data.description}</p>
                     </div>
-                  )}
-
-                  <div className="pt-2 border-t">
-                    <div className="text-xs text-muted-foreground mb-2">Additional Information</div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                  ) : null}
+                  <div className="grid gap-2">
+                    <div>
+                      <span className="text-muted-foreground">Status: </span>
+                      <Badge variant={viewQuery.data.status?.toLowerCase() === 'active' ? 'default' : 'outline'}>
+                        {viewQuery.data.status ?? '—'}
+                      </Badge>
+                    </div>
+                    {viewQuery.data.createdAt ? (
                       <div>
-                        <span className="text-muted-foreground">Status:</span> <span className="font-medium">{viewQuery.data.status || '-'}</span>
+                        <span className="text-muted-foreground">Created: </span>
+                        {new Date(viewQuery.data.createdAt).toLocaleString()}
                       </div>
-                      {viewQuery.data.createdAt && (
-                        <div>
-                          <span className="text-muted-foreground">Created:</span> <span>{new Date(viewQuery.data.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
+                    ) : null}
+                    {viewQuery.data.updatedAt ? (
+                      <div>
+                        <span className="text-muted-foreground">Updated: </span>
+                        {new Date(viewQuery.data.updatedAt).toLocaleString()}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-              </div>
-            ) : null}
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">No product details available.</div>
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
+          <DrawerFooterSection>
+            {viewQuery.data ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setViewOpen(false);
+                  router.push(`/products/${viewQuery.data?.id}/edit`);
+                }}
+              >
+                <IconPencil className="mr-2 size-4" />
+                Edit product
+              </Button>
+            ) : null}
+            <DrawerClose asChild>
+              <Button variant="secondary">Close</Button>
+            </DrawerClose>
+          </DrawerFooterSection>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

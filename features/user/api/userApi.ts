@@ -28,15 +28,15 @@ const normalizePaginatedUsers = (response?: PaginatedUsersResponse): PaginatedUs
   return undefined;
 };
 
-const paramsFromFilters = (filters?: UserFilters) => {
+const paramsFromFilters = (filters?: UserFilters | void) => {
   if (!filters) return undefined;
   const params: Record<string, string | number | boolean> = {};
   if (filters.page) params.page = filters.page;
   if (filters.limit) params.limit = filters.limit;
   if (filters.search) params.search = filters.search;
-  if (filters.role && filters.role !== '') params.role = filters.role;
+  if (filters.role && filters.role.length > 0) params.role = filters.role;
   if (typeof filters.isActive === 'boolean') params.isActive = filters.isActive;
-  if (filters.gender && filters.gender !== '') params.gender = filters.gender;
+  if (filters.gender) params.gender = filters.gender;
   if (filters.sortBy) params.sortBy = filters.sortBy;
   if (filters.sortOrder) params.sortOrder = filters.sortOrder;
   return params;
@@ -47,7 +47,7 @@ type UpdateUserRequest = FormData | UpdateUserInput;
 
 export const userApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getUsers: build.query<PaginatedUsersResponse, UserFilters | void>({
+    getUsers: build.query<PaginatedUsersResponse, UserFilters | undefined>({
       query: (filters) => ({
         url: '/users',
         params: paramsFromFilters(filters),

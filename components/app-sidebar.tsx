@@ -51,7 +51,6 @@ const data = {
       items: [
         { title: "Products", url: "/products" },
         { title: "Batches", url: "/batches" },
-        { title: "Add Product", url: "/products/new" },
         { title: "Categories", url: "/categories" },
         { title: "Manufacturers", url: "/manufacturers" },
       ],

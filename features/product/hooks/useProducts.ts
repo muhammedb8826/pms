@@ -14,6 +14,42 @@ import {
 } from '@/features/product/api/productApi';
 import type { Product, PaginatedProducts } from '@/features/product/types';
 
+type MaybeWrappedProduct = Product | { data?: unknown } | { product?: Product };
+
+function unwrapProductResponse(response: unknown): Product {
+  if (!response || typeof response !== 'object') {
+    throw new Error('Empty product response');
+  }
+
+  if ('id' in response && typeof (response as { id?: unknown }).id === 'string') {
+    return response as Product;
+  }
+
+  if ('product' in response) {
+    const product = (response as { product?: unknown }).product;
+    if (product && typeof product === 'object' && 'id' in product) {
+      return product as Product;
+    }
+  }
+
+  if ('data' in response) {
+    const data = (response as { data?: unknown }).data;
+    if (data && typeof data === 'object') {
+      if ('id' in data && typeof (data as { id?: unknown }).id === 'string') {
+        return data as Product;
+      }
+      if ('data' in data) {
+        const inner = (data as { data?: unknown }).data;
+        if (inner && typeof inner === 'object' && 'id' in inner) {
+          return inner as Product;
+        }
+      }
+    }
+  }
+
+  throw new Error('Unable to unwrap product response');
+}
+
 // Wrapper hooks to maintain compatibility with existing code
 export function useProducts(
   page = 1,
@@ -82,7 +118,10 @@ export function useProduct(id?: string) {
 export function useCreateProduct() {
   const [createProduct, result] = useCreateProductMutation();
   return {
-    mutateAsync: createProduct,
+    mutateAsync: async (dto: Parameters<typeof createProduct>[0]) => {
+      const response = await createProduct(dto).unwrap();
+      return unwrapProductResponse(response as MaybeWrappedProduct);
+    },
     isPending: result.isLoading,
     ...result,
   };
@@ -91,8 +130,10 @@ export function useCreateProduct() {
 export function useUpdateProduct() {
   const [updateProduct, result] = useUpdateProductMutation();
   return {
-    mutateAsync: ({ id, dto }: { id: string; dto: Parameters<typeof updateProduct>[0]['data'] }) =>
-      updateProduct({ id, data: dto }),
+    mutateAsync: async ({ id, dto }: { id: string; dto: Parameters<typeof updateProduct>[0]['data'] }) => {
+      const response = await updateProduct({ id, data: dto }).unwrap();
+      return unwrapProductResponse(response as MaybeWrappedProduct);
+    },
     isPending: result.isLoading,
     ...result,
   };
@@ -101,7 +142,10 @@ export function useUpdateProduct() {
 export function useDeleteProduct() {
   const [deleteProduct, result] = useDeleteProductMutation();
   return {
-    mutateAsync: deleteProduct,
+    mutateAsync: async (id: Parameters<typeof deleteProduct>[0]) => {
+      const response = await deleteProduct(id).unwrap();
+      return response;
+    },
     isPending: result.isLoading,
     ...result,
   };
@@ -110,7 +154,10 @@ export function useDeleteProduct() {
 export function useUploadProductImage() {
   const [uploadImage, result] = useUploadProductImageMutation();
   return {
-    mutateAsync: ({ id, file }: { id: string; file: File }) => uploadImage({ id, file }),
+    mutateAsync: async ({ id, file }: { id: string; file: File }) => {
+      const response = await uploadImage({ id, file }).unwrap();
+      return unwrapProductResponse(response as MaybeWrappedProduct);
+    },
     isPending: result.isLoading,
     ...result,
   };
