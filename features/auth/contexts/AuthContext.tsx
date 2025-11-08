@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User, AuthTokens } from '@/features/auth/types';
 import { authService } from '@/services/auth';
 
@@ -12,6 +12,7 @@ type AuthContextType = {
   signup: (data: { email: string; password: string; confirm_password: string; phone: string; address: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshTokens: () => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,15 +37,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  const persistUser = (next: User | null) => {
+    if (typeof window !== 'undefined') {
+      if (next) {
+        localStorage.setItem('user', JSON.stringify(next));
+      } else {
+        localStorage.removeItem('user');
+      }
+    }
+    setUser(next);
+  };
+
   const signin = async (email: string, password: string) => {
     const response = await authService.signin({ email, password });
     // Validate response structure
     if (!response || !response.tokens || !response.user) {
       throw new Error('Invalid response from server');
     }
-    setUser(response.user);
+    persistUser(response.user);
     setTokens(response.tokens);
-    localStorage.setItem('user', JSON.stringify(response.user));
     localStorage.setItem('tokens', JSON.stringify(response.tokens));
     localStorage.setItem('accessToken', response.tokens.accessToken);
     localStorage.setItem('refreshToken', response.tokens.refreshToken);
@@ -56,9 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!response || !response.tokens || !response.user) {
       throw new Error('Invalid response from server');
     }
-    setUser(response.user);
+    persistUser(response.user);
     setTokens(response.tokens);
-    localStorage.setItem('user', JSON.stringify(response.user));
     localStorage.setItem('tokens', JSON.stringify(response.tokens));
     localStorage.setItem('accessToken', response.tokens.accessToken);
     localStorage.setItem('refreshToken', response.tokens.refreshToken);
@@ -70,9 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     } finally {
-      setUser(null);
+      persistUser(null);
       setTokens(null);
-      localStorage.removeItem('user');
       localStorage.removeItem('tokens');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
@@ -91,8 +100,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('refreshToken', response.tokens.refreshToken);
   };
 
+  const updateUserInfo = useCallback((partial: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, tokens, isLoading, signin, signup, logout, refreshTokens }}>
+    <AuthContext.Provider value={{ user, tokens, isLoading, signin, signup, logout, refreshTokens, updateUser: updateUserInfo }}>
       {children}
     </AuthContext.Provider>
   );

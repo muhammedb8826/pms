@@ -6,6 +6,8 @@ import '@/features/category/api/categoryApi';
 import '@/features/manufacturer/api/manufacturerApi';
 import '@/features/uom/api/uomApi';
 import '@/features/auth/api/authApi';
+import '@/features/user/api/userApi';
+import '@/features/auth/api/accountApi';
 
 export const makeStore = () => {
   return configureStore({

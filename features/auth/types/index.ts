@@ -1,9 +1,14 @@
 export interface User {
   id: string;
   email: string;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  gender?: string | null;
   phone: string;
-  address: string;
-  roles: string;
+  address?: string | null;
+  profile?: string | null;
+  roles: string | string[];
   is_active: boolean;
   createdAt: string;
   updatedAt: string;

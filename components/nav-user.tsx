@@ -105,7 +105,12 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault()
+                  router.push("/account")
+                }}
+              >
                 <IconUserCircle />
                 Account
               </DropdownMenuItem>
