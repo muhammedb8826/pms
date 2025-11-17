@@ -8,6 +8,7 @@ import '@/features/uom/api/uomApi';
 import '@/features/auth/api/authApi';
 import '@/features/user/api/userApi';
 import '@/features/auth/api/accountApi';
+import '@/features/credit/api/creditApi';
 
 export const makeStore = () => {
   return configureStore({

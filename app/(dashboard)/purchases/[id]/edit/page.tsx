@@ -1,22 +1,46 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PurchaseForm } from '@/features/purchase/components/PurchaseForm';
 import { useRouter, useParams } from 'next/navigation';
-import { usePurchase } from '@/features/purchase/hooks/usePurchases';
+import { usePurchase, usePurchaseItems } from '@/features/purchase/hooks/usePurchases';
+import type { Purchase } from '@/features/purchase/types';
 
 export default function EditPurchasePage() {
   const router = useRouter();
   const params = useParams();
   const purchaseId = params.id as string;
   const { data: purchase, isLoading, error } = usePurchase(purchaseId);
+  const { data: purchaseItemsData, isLoading: itemsLoading } = usePurchaseItems(purchaseId);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
-  if (isLoading) {
+  console.log({purchase, purchaseItemsData});
+
+  // Merge purchase items if they were fetched separately
+  const purchaseWithItems = useMemo<Purchase | undefined>(() => {
+    if (!purchase) return undefined;
+    
+    // If purchase already has items, use it as is
+    if (purchase.items && purchase.items.length > 0) {
+      return purchase;
+    }
+    // Otherwise, use items from the separate query (already unwrapped by hook)
+    const itemsArray: Purchase['items'] = (purchaseItemsData && Array.isArray(purchaseItemsData) && purchaseItemsData.length > 0)
+      ? purchaseItemsData
+      : (purchase.items || []);
+    
+    // Always return a new object to ensure reference changes when items are loaded
+    return {
+      ...purchase,
+      items: itemsArray,
+    };
+  }, [purchase, purchaseItemsData]);
+
+  if (isLoading || itemsLoading) {
     return (
       <div className="flex flex-col gap-4 p-4">
         <div className="p-4">Loading purchase...</div>
@@ -24,7 +48,7 @@ export default function EditPurchasePage() {
     );
   }
 
-  if (error || !purchase) {
+  if (error || !purchaseWithItems) {
     return (
       <div className="flex flex-col gap-4 p-4">
         <div className="p-4 text-red-600">
@@ -56,7 +80,7 @@ export default function EditPurchasePage() {
       <div className="rounded-md border p-4">
         <h1 className="text-xl font-semibold mb-2">Edit Purchase</h1>
         <PurchaseForm
-          purchase={purchase}
+          purchase={purchaseWithItems}
           onSuccess={() => router.push('/purchases')}
           onCancel={() => router.push('/purchases')}
           onErrorChange={setFormError}
@@ -69,7 +93,7 @@ export default function EditPurchasePage() {
             {formError ? <span className="text-xs text-red-600">{formError}</span> : <span />}
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => router.push('/purchases')}>Cancel</Button>
-              <Button type="submit" form="purchase-form" disabled={formSubmitting || purchase.status === 'COMPLETED'}>
+              <Button type="submit" form="purchase-form" disabled={formSubmitting || purchaseWithItems.status === 'COMPLETED'}>
                 {formSubmitting ? 'Saving…' : 'Update'}
               </Button>
             </div>

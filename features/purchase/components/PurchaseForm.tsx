@@ -115,9 +115,14 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
       setDate(purchase.date ?? new Date().toISOString().split('T')[0]);
       setStatus(purchase.status ?? 'PENDING');
       setNotes(purchase.notes ?? '');
-      setItems(
-        purchase.items && purchase.items.length > 0
-          ? purchase.items.map(item => ({
+      
+      // Always update items when purchase changes
+      // Check if purchase has items array (even if empty)
+      if (Array.isArray(purchase.items)) {
+        if (purchase.items.length > 0) {
+          // Map existing items to form state
+          setItems(
+            purchase.items.map(item => ({
               productId: item.product?.id ?? '',
               uomId: item.uom?.id ?? '',
               batchNumber: item.batchNumber ?? '',
@@ -127,14 +132,33 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
               totalCost: item.totalCost ?? 0,
               notes: item.notes || undefined,
             }))
-          : [{
-              productId: '',
-              batchNumber: '',
-              expiryDate: '',
-              quantity: 1,
-              unitCost: 0,
-            }]
-      );
+          );
+        } else {
+          // Empty array - set to single empty item for new purchase flow
+          setItems([{
+            productId: '',
+            batchNumber: '',
+            expiryDate: '',
+            quantity: 1,
+            unitCost: 0,
+          }]);
+        }
+      } else if (!purchase.items) {
+        // Items not loaded yet - initialize with empty item but don't overwrite if we already have items
+        // Only set if current items state is the default empty state
+        setItems(prev => {
+          if (prev.length === 1 && !prev[0]?.productId && prev[0]?.quantity === 1) {
+            return prev; // Keep current state
+          }
+          return [{
+            productId: '',
+            batchNumber: '',
+            expiryDate: '',
+            quantity: 1,
+            unitCost: 0,
+          }];
+        });
+      }
     }
   }, [purchase]);
 

@@ -30,12 +30,14 @@ class AuthService {
         if (firstString) {
           errorMessage = firstString;
         } else {
-          errorMessage = JSON.stringify(error);
+          errorMessage = JSON.stringify(error) || 'An error occurred';
         }
       } catch {
-        errorMessage = `${response.status} ${response.statusText}`;
+        const status = response.status ?? 'Unknown';
+        const statusText = response.statusText ?? 'Error';
+        errorMessage = `${status} ${statusText}`;
       }
-      throw new Error(errorMessage);
+      throw new Error(errorMessage || 'An error occurred');
     }
 
     return response.json();

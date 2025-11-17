@@ -88,6 +88,8 @@ export const baseApi = createApi({
     'Users',
     'User',
     'Account',
+    'Credits',
+    'Credit',
   ],
   endpoints: () => ({}),
 });

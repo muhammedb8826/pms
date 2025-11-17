@@ -106,9 +106,31 @@ export function useDeletePurchase() {
 }
 
 export function usePurchaseItems(purchaseId?: string, productId?: string) {
-  return useGetPurchaseItemsQuery(
-    purchaseId || productId ? { purchaseId, productId } : undefined
+  const query = useGetPurchaseItemsQuery(
+    purchaseId || productId ? { purchaseId, productId } : undefined,
+    { skip: !purchaseId && !productId }
   );
+
+  // Unwrap purchase items from possible wrapped response
+  type WrappedResponse<T> = { success?: boolean; data?: T };
+  const raw = query.data as Purchase['items'] | WrappedResponse<Purchase['items']> | undefined;
+  
+  let items: Purchase['items'] = [];
+  if (raw) {
+    if (Array.isArray(raw)) {
+      items = raw;
+    } else if (typeof raw === 'object' && 'data' in raw) {
+      const wrapped = raw as WrappedResponse<Purchase['items']>;
+      if (wrapped.data && Array.isArray(wrapped.data)) {
+        items = wrapped.data;
+      }
+    }
+  }
+
+  return {
+    ...query,
+    data: items,
+  };
 }
 
 export function useCreatePurchaseItem() {
