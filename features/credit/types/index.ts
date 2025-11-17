@@ -10,6 +10,16 @@ export enum CreditStatus {
   OVERDUE = 'OVERDUE',
 }
 
+export enum PaymentMethod {
+  CASH = 'CASH',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  CHECK = 'CHECK',
+  CREDIT_CARD = 'CREDIT_CARD',
+  DEBIT_CARD = 'DEBIT_CARD',
+  MOBILE_MONEY = 'MOBILE_MONEY',
+  OTHER = 'OTHER',
+}
+
 export interface SupplierSummary {
   id: string;
   name: string;
@@ -30,6 +40,16 @@ export interface SaleSummary {
   invoiceNo?: string;
 }
 
+export interface Payment {
+  id: string;
+  amount: string;
+  paymentMethod: PaymentMethod;
+  referenceNumber?: string | null;
+  paymentDate: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
 export interface Credit {
   id: string;
   type: CreditType;
@@ -44,6 +64,7 @@ export interface Credit {
   purchase: PurchaseSummary | null;
   sale: SaleSummary | null;
   notes?: string | null;
+  payments?: Payment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +91,8 @@ export interface UpdateCreditDto {
 
 export interface RecordPaymentDto {
   amount: number;
+  paymentMethod?: PaymentMethod;
+  referenceNumber?: string;
   paymentDate?: string;
   notes?: string;
 }

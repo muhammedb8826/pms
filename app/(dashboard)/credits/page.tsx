@@ -525,6 +525,36 @@ export default function CreditsPage() {
                       <p className="text-sm">{viewQuery.data.notes}</p>
                     </div>
                   )}
+                  {viewQuery.data.payments && viewQuery.data.payments.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Payment History</p>
+                      <div className="border rounded-lg divide-y">
+                        {viewQuery.data.payments.map((payment) => (
+                          <div key={payment.id} className="p-3 space-y-1">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{currencyFormatter.format(parseFloat(payment.amount))}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {payment.paymentMethod.replace(/_/g, ' ')}
+                                  </Badge>
+                                </div>
+                                {payment.referenceNumber && (
+                                  <p className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</p>
+                                )}
+                                {payment.notes && (
+                                  <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
+                                )}
+                              </div>
+                              <div className="text-right text-xs text-muted-foreground">
+                                <p>{dateFormatter.format(new Date(payment.paymentDate))}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                     <div>
                       <p>Created</p>
@@ -647,6 +677,36 @@ export default function CreditsPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Notes</p>
                     <p className="text-sm">{viewQuery.data.notes}</p>
+                  </div>
+                )}
+                {viewQuery.data.payments && viewQuery.data.payments.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Payment History</p>
+                    <div className="border rounded-lg divide-y">
+                      {viewQuery.data.payments.map((payment) => (
+                        <div key={payment.id} className="p-3 space-y-1">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{currencyFormatter.format(parseFloat(payment.amount))}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {payment.paymentMethod.replace(/_/g, ' ')}
+                                </Badge>
+                              </div>
+                              {payment.referenceNumber && (
+                                <p className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</p>
+                              )}
+                              {payment.notes && (
+                                <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
+                              )}
+                            </div>
+                            <div className="text-right text-xs text-muted-foreground">
+                              <p>{dateFormatter.format(new Date(payment.paymentDate))}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
