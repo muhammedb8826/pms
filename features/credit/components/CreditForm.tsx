@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
-import type { Credit, CreateCreditDto, UpdateCreditDto, CreditType } from '@/features/credit/types';
-import { CreditType as CreditTypeEnum } from '@/features/credit/types';
+import type { Credit, CreateCreditDto, CreditType } from '@/features/credit/types';
+import { CreditType as CreditTypeEnum, CreditStatus } from '@/features/credit/types';
 import { useCreateCredit, useUpdateCredit } from '@/features/credit/hooks/useCredits';
 import { useGetAllSuppliersQuery } from '@/features/supplier/api/supplierApi';
 import { useGetAllCustomersQuery } from '@/features/customer/api/customerApi';
@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 
 const createSchema = z.object({
-  type: z.enum(['PAYABLE', 'RECEIVABLE']),
+  type: z.nativeEnum(CreditTypeEnum),
   totalAmount: z.coerce.number().min(0.01, 'Total amount must be greater than 0'),
   paidAmount: z.coerce.number().min(0, 'Paid amount must be >= 0').optional(),
   supplierId: z.string().optional(),
@@ -30,7 +30,7 @@ const createSchema = z.object({
   dueDate: z.string().optional(),
   notes: z.string().optional(),
 }).refine((data) => {
-  if (data.type === 'PAYABLE') {
+  if (data.type === CreditTypeEnum.PAYABLE) {
     return !!data.supplierId;
   }
   return !!data.customerId;
@@ -48,7 +48,7 @@ const createSchema = z.object({
 });
 
 const updateSchema = z.object({
-  status: z.enum(['PENDING', 'PARTIAL', 'PAID', 'OVERDUE']).optional(),
+  status: z.nativeEnum(CreditStatus).optional(),
   paidAmount: z.coerce.number().min(0).optional(),
   dueDate: z.string().optional(),
   paidDate: z.string().optional(),
@@ -136,7 +136,7 @@ export function CreditForm({
     const data = purchasesQuery.data as { purchases?: Purchase[] } | Wrapped<{ purchases?: Purchase[] }> | undefined;
     if (!data) return [];
     if ('purchases' in data && Array.isArray(data.purchases)) return data.purchases;
-    if ('data' in data && 'purchases' in data.data && Array.isArray(data.data.purchases)) {
+    if ('data' in data && data.data && 'purchases' in data.data && Array.isArray(data.data.purchases)) {
       return data.data.purchases;
     }
     return [];
@@ -147,7 +147,7 @@ export function CreditForm({
     const data = salesQuery.data as { sales?: Sale[] } | Wrapped<{ sales?: Sale[] }> | undefined;
     if (!data) return [];
     if ('sales' in data && Array.isArray(data.sales)) return data.sales;
-    if ('data' in data && 'sales' in data.data && Array.isArray(data.data.sales)) {
+    if ('data' in data && data.data && 'sales' in data.data && Array.isArray(data.data.sales)) {
       return data.data.sales;
     }
     return [];
@@ -280,7 +280,7 @@ export function CreditForm({
                 <label htmlFor="supplierId" className="block text-sm font-medium">
                   Supplier *
                 </label>
-                <Select value={supplierId} onValueChange={setSupplierId}>
+                <Select value={supplierId} onValueChange={(v) => setSupplierId(v || '')}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select supplier" />
                   </SelectTrigger>
@@ -299,7 +299,7 @@ export function CreditForm({
                 <label htmlFor="customerId" className="block text-sm font-medium">
                   Customer *
                 </label>
-                <Select value={customerId} onValueChange={setCustomerId}>
+                <Select value={customerId} onValueChange={(v) => setCustomerId(v || '')}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select customer" />
                   </SelectTrigger>
@@ -320,7 +320,7 @@ export function CreditForm({
                 <label htmlFor="purchaseId" className="block text-sm font-medium">
                   Purchase (Optional)
                 </label>
-                <Select value={purchaseId} onValueChange={setPurchaseId}>
+                <Select value={purchaseId} onValueChange={(v) => setPurchaseId(v || '')}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select purchase" />
                   </SelectTrigger>
@@ -341,7 +341,7 @@ export function CreditForm({
                 <label htmlFor="saleId" className="block text-sm font-medium">
                   Sale (Optional)
                 </label>
-                <Select value={saleId} onValueChange={setSaleId}>
+                <Select value={saleId} onValueChange={(v) => setSaleId(v || '')}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select sale" />
                   </SelectTrigger>
@@ -349,7 +349,7 @@ export function CreditForm({
                     <SelectItem value="">None</SelectItem>
                     {sales.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.invoiceNo || s.id}
+                        {s.id}
                       </SelectItem>
                     ))}
                   </SelectContent>
