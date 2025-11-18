@@ -36,19 +36,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter as DrawerFooterSection,
-  DrawerHeader as DrawerHeaderSection,
-  DrawerTitle,
-} from '@/components/ui/drawer';
 import { DashboardDataTable } from '@/components/dashboard-data-table';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
-import { useProducts, useProduct, useDeleteProduct } from '@/features/product/hooks/useProducts';
+import { useProducts, useDeleteProduct } from '@/features/product/hooks/useProducts';
 import {
   useImportProductsSimpleMutation,
   useLazyDownloadProductTemplateQuery,
@@ -82,7 +72,6 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
 
 export default function ProductsPage() {
   const router = useRouter();
-  const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [page, setPage] = useState(1);
@@ -102,14 +91,6 @@ export default function ProductsPage() {
   const [importProducts] = useImportProductsSimpleMutation();
   const [downloadTemplate] = useLazyDownloadProductTemplateQuery();
 
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewId, setViewId] = useState<string | null>(null);
-  const viewQuery = useProduct(viewId ?? undefined);
-
-  const handleView = useCallback((product: Product) => {
-    setViewId(product.id);
-    setViewOpen(true);
-  }, []);
 
   const handleEdit = useCallback(
     (product: Product) => {
@@ -144,13 +125,9 @@ export default function ProductsPage() {
           const product = row.original;
           return (
             <div className="flex flex-col gap-0.5">
-              <button
-                type="button"
-                onClick={() => handleView(product)}
-                className="text-sm font-semibold text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
+              <span className="text-sm font-semibold">
                 {product.name}
-              </button>
+              </span>
               {product.genericName ? (
                 <span className="text-xs text-muted-foreground">{product.genericName}</span>
               ) : null}
@@ -234,6 +211,9 @@ export default function ProductsPage() {
                     size="icon"
                     className="text-muted-foreground data-[state=open]:bg-muted"
                     aria-label="Open product actions"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
@@ -242,15 +222,11 @@ export default function ProductsPage() {
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
-                      handleView(product);
-                    }}
-                  >
-                    View details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
+                      event.stopPropagation();
                       handleEdit(product);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                     }}
                   >
                     Edit product
@@ -288,7 +264,7 @@ export default function ProductsPage() {
         },
       },
     ];
-  }, [handleEdit, handleView, handleDelete, deleteMutation.isPending]);
+  }, [handleEdit, handleDelete, deleteMutation.isPending]);
 
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -450,6 +426,23 @@ export default function ProductsPage() {
           renderDetails={renderDetails}
           detailsTitle={(product) => product.name}
           detailsDescription={(product) => product.genericName || ''}
+          renderDetailsFooter={(product, onClose) => (
+            <Button 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+                // Use setTimeout to ensure drawer closes before navigation
+                setTimeout(() => {
+                  router.push(`/products/${product.id}/edit`);
+                }, 0);
+              }} 
+              className="w-full"
+            >
+              <IconPencil className="mr-2 size-4" />
+              Edit Product
+            </Button>
+          )}
           headerFilters={
             <div className="flex flex-wrap items-center gap-2">
               <Input
@@ -514,147 +507,6 @@ export default function ProductsPage() {
           }
         />
       </div>
-
-      <Drawer
-        open={viewOpen}
-        onOpenChange={(open) => {
-          setViewOpen(open);
-          if (!open) {
-            setViewId(null);
-          }
-        }}
-        direction={isMobile ? 'bottom' : 'right'}
-      >
-        <DrawerContent className="max-h-[95vh] sm:max-w-lg">
-          <DrawerHeaderSection className="gap-1">
-            <DrawerTitle>{viewQuery.data?.name ?? 'Product details'}</DrawerTitle>
-            {viewQuery.data?.genericName ? (
-              <DrawerDescription>{viewQuery.data.genericName}</DrawerDescription>
-            ) : null}
-          </DrawerHeaderSection>
-          <div className="space-y-6 px-4 pb-4">
-            {viewQuery.isLoading ? (
-              <div className="text-sm text-muted-foreground">Loading…</div>
-            ) : viewQuery.error ? (
-              <div className="text-sm text-destructive">
-                {viewQuery.error instanceof Error ? viewQuery.error.message : 'Failed to load product'}
-              </div>
-            ) : viewQuery.data ? (
-              <>
-                <div className="rounded-lg border bg-muted/30 p-4">
-                  <div className="mb-2 text-xs text-muted-foreground">Product image</div>
-                  {viewQuery.data.image ? (
-                    <div className="relative aspect-square w-full overflow-hidden rounded-md bg-background">
-                      <Image
-                        fill
-                        src={resolveImageUrl(viewQuery.data.image)}
-                        alt={viewQuery.data.name}
-                        className="object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex aspect-square w-full items-center justify-center rounded-md border bg-background text-sm text-muted-foreground">
-                      No image available
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid gap-4 text-sm">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Category</div>
-                    <div className="font-medium text-foreground">{viewQuery.data.category?.name ?? '—'}</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Manufacturer</div>
-                      <div className="font-medium text-foreground">
-                        {viewQuery.data.manufacturer?.name ?? '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Default UOM</div>
-                      <div className="font-medium text-foreground">
-                        {viewQuery.data.defaultUom
-                          ? `${viewQuery.data.defaultUom.name}${
-                              viewQuery.data.defaultUom.abbreviation
-                                ? ` (${viewQuery.data.defaultUom.abbreviation})`
-                                : ''
-                            }`
-                          : '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Quantity</div>
-                      <div className="font-medium tabular-nums">{viewQuery.data.quantity}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Min level</div>
-                      <div className="font-medium tabular-nums">{viewQuery.data.minLevel ?? '—'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Purchase price</div>
-                      <div className="font-medium tabular-nums">
-                        {currencyFormatter.format(Number(viewQuery.data.purchasePrice ?? 0))}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Selling price</div>
-                      <div className="font-medium tabular-nums">
-                        {currencyFormatter.format(Number(viewQuery.data.sellingPrice ?? 0))}
-                      </div>
-                    </div>
-                  </div>
-                  {viewQuery.data.description ? (
-                    <div>
-                      <div className="mb-1 text-xs text-muted-foreground">Description</div>
-                      <p className="whitespace-pre-wrap text-foreground">{viewQuery.data.description}</p>
-                    </div>
-                  ) : null}
-                  <div className="grid gap-2">
-                    <div>
-                      <span className="text-muted-foreground">Status: </span>
-                      <Badge variant={viewQuery.data.status?.toLowerCase() === 'active' ? 'default' : 'outline'}>
-                        {viewQuery.data.status ?? '—'}
-                      </Badge>
-                    </div>
-                    {viewQuery.data.createdAt ? (
-                      <div>
-                        <span className="text-muted-foreground">Created: </span>
-                        {new Date(viewQuery.data.createdAt).toLocaleString()}
-                      </div>
-                    ) : null}
-                    {viewQuery.data.updatedAt ? (
-                      <div>
-                        <span className="text-muted-foreground">Updated: </span>
-                        {new Date(viewQuery.data.updatedAt).toLocaleString()}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-sm text-muted-foreground">No product details available.</div>
-            )}
-          </div>
-          <DrawerFooterSection>
-            {viewQuery.data ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setViewOpen(false);
-                  router.push(`/products/${viewQuery.data?.id}/edit`);
-                }}
-              >
-                <IconPencil className="mr-2 size-4" />
-                Edit product
-              </Button>
-            ) : null}
-            <DrawerClose asChild>
-              <Button variant="secondary">Close</Button>
-            </DrawerClose>
-          </DrawerFooterSection>
-        </DrawerContent>
-      </Drawer>
     </div>
   );
 }

@@ -107,6 +107,7 @@ export interface DashboardDataTableProps<TData extends { id: string | number }> 
   renderDetails?: (item: TData) => React.ReactNode
   detailsTitle?: (item: TData) => string
   detailsDescription?: (item: TData) => string
+  renderDetailsFooter?: (item: TData, onClose: () => void) => React.ReactNode
   pageIndex?: number
   pageSize?: number
   pageCount?: number
@@ -131,6 +132,7 @@ export function DashboardDataTable<TData extends { id: string | number }>({
   renderDetails,
   detailsTitle,
   detailsDescription,
+  renderDetailsFooter,
   pageIndex = 0,
   pageSize = 10,
   pageCount,
@@ -544,6 +546,7 @@ export function DashboardDataTable<TData extends { id: string | number }>({
                 {renderDetails(selectedItem)}
               </div>
               <DrawerFooter>
+                {renderDetailsFooter ? renderDetailsFooter(selectedItem, () => setDetailsOpen(false)) : null}
                 <DrawerClose asChild>
                   <Button variant="outline">Close</Button>
                 </DrawerClose>
@@ -631,11 +634,12 @@ export function DashboardDataTable<TData extends { id: string | number }>({
                   {detailsDescription(selectedItem)}
                 </DrawerDescription>
               )}
-            </DrawerHeader>
+              </DrawerHeader>
             <div className="overflow-y-auto px-4 pb-4">
               {renderDetails(selectedItem)}
             </div>
             <DrawerFooter>
+              {renderDetailsFooter ? renderDetailsFooter(selectedItem, () => setDetailsOpen(false)) : null}
               <DrawerClose asChild>
                 <Button variant="outline">Close</Button>
               </DrawerClose>
