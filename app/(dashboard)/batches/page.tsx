@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { IconDotsVertical, IconFilePlus, IconPencil, IconSettings } from "@tabler/icons-react";
 
@@ -25,18 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter as DrawerFooterSection,
-  DrawerHeader as DrawerHeaderSection,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
-import { ListDataTable } from "@/components/list-data-table";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { DashboardDataTable } from "@/components/dashboard-data-table";
 import { useBatches, useDeleteBatch } from "@/features/batch/hooks/useBatches";
 import type { Batch } from "@/features/batch/types";
 import { useAllProducts } from "@/features/product/hooks/useProducts";
@@ -56,15 +47,13 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 export default function BatchesPage() {
-  const isMobile = useIsMobile();
+  const router = useRouter();
   const [productId, setProductId] = useState<string>("");
   const [supplierId, setSupplierId] = useState<string>("");
   const [expiredOnly, setExpiredOnly] = useState<"all" | "true" | "false">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewId, setViewId] = useState<string | null>(null);
-  const [pageIndex, setPageIndex] = useState(0);
+  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const { batches, loading, error, refetch } = useBatches({
@@ -96,47 +85,15 @@ export default function BatchesPage() {
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(batches.length / pageSize) || 1), [batches.length, pageSize]);
   const paginatedBatches = useMemo(() => {
-    const start = pageIndex * pageSize;
+    const start = (page - 1) * pageSize;
     return batches.slice(start, start + pageSize);
-  }, [batches, pageIndex, pageSize]);
-
-  useEffect(() => {
-    const maxIndex = Math.max(0, pageCount - 1);
-    if (pageIndex > maxIndex) {
-      setPageIndex(maxIndex);
-    }
-  }, [pageIndex, pageCount]);
-
-  const selectedBatch = useMemo(
-    () => (viewId ? batches.find((batch) => batch.id === viewId) ?? null : null),
-    [batches, viewId],
-  );
+  }, [batches, page, pageSize]);
 
   const deleteMutation = useDeleteBatch();
 
-  const handlePageChange = useCallback(
-    (nextIndex: number) => {
-      const maxIndex = Math.max(pageCount - 1, 0);
-      const clamped = Math.min(Math.max(nextIndex, 0), maxIndex);
-      setPageIndex(clamped);
-    },
-    [pageCount],
-  );
-
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setPageIndex(0);
-  }, []);
-
-  const handleView = useCallback((batch: Batch) => {
-    setViewId(batch.id);
-    setViewOpen(true);
-  }, []);
-
   const handleEdit = useCallback((batch: Batch) => {
-    setEditingId(batch.id);
-    setDialogOpen(true);
-  }, []);
+    router.push(`/batches/${batch.id}/edit`);
+  }, [router]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -161,13 +118,9 @@ export default function BatchesPage() {
         accessorKey: "batchNumber",
         header: "Batch",
         cell: ({ row }) => (
-          <button
-            type="button"
-            onClick={() => handleView(row.original)}
-            className="text-left text-sm font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
+          <span className="text-sm font-semibold">
             {row.original.batchNumber}
-          </button>
+          </span>
         ),
       },
       {
@@ -260,6 +213,9 @@ export default function BatchesPage() {
                     size="icon"
                     className="text-muted-foreground data-[state=open]:bg-muted"
                     aria-label="Open batch actions"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
@@ -268,15 +224,11 @@ export default function BatchesPage() {
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
-                      handleView(batch);
-                    }}
-                  >
-                    View details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
+                      event.stopPropagation();
                       handleEdit(batch);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                     }}
                   >
                     Edit batch
@@ -314,10 +266,87 @@ export default function BatchesPage() {
         },
       },
     ];
-  }, [deleteMutation.isPending, handleDelete, handleEdit, handleView]);
+  }, [deleteMutation.isPending, handleDelete, handleEdit]);
+
+  const renderDetails = useCallback((batch: Batch) => {
+    const expiry = new Date(batch.expiryDate);
+    const isValid = !Number.isNaN(expiry.getTime());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expired = isValid && expiry < today;
+
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 text-sm">
+          <div>
+            <div className="text-xs text-muted-foreground">Batch number</div>
+            <div className="font-medium text-foreground">{batch.batchNumber}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Product</div>
+            <div className="font-medium text-foreground">{batch.product?.name ?? "—"}</div>
+            {batch.product?.category?.name ? (
+              <div className="text-xs text-muted-foreground">{batch.product.category.name}</div>
+            ) : null}
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Supplier</div>
+            <div className="font-medium text-foreground">{batch.supplier?.name ?? "—"}</div>
+            {batch.supplier?.contact ? (
+              <div className="text-xs text-muted-foreground">{batch.supplier.contact}</div>
+            ) : null}
+            {batch.supplier?.email ? (
+              <div className="text-xs text-muted-foreground">{batch.supplier.email}</div>
+            ) : null}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-muted-foreground">Quantity</div>
+              <div className="font-medium tabular-nums">{batch.quantity.toLocaleString()}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Purchase price</div>
+              <div className="font-medium tabular-nums">
+                {currencyFormatter.format(Number(batch.purchasePrice ?? 0))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Selling price</div>
+              <div className="font-medium tabular-nums">
+                {currencyFormatter.format(Number(batch.sellingPrice ?? 0))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Created</div>
+              <div className="font-medium text-foreground">
+                {batch.createdAt ? new Date(batch.createdAt).toLocaleString() : "—"}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Expiry</div>
+            {isValid ? (
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-foreground">{dateFormatter.format(expiry)}</span>
+                <Badge variant={expired ? "destructive" : "outline"} className="text-xs uppercase">
+                  {expired ? "Expired" : "Active"}
+                </Badge>
+              </div>
+            ) : (
+              <div className="font-medium text-foreground">—</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }, []);
+
+  if (error) {
+    return <div className="p-4 text-sm text-destructive">Error: {error}</div>;
+  }
 
   return (
-    <div className="flex flex-col gap-4 overflow-x-hidden p-4">
+    <div className="flex flex-col gap-4 p-4 overflow-x-hidden">
       <div className="flex flex-col gap-4 rounded-xl border bg-background p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
           <div>
@@ -327,92 +356,117 @@ export default function BatchesPage() {
             </p>
             <p className="mt-1 text-xs text-muted-foreground">Total batches: {batches.length}</p>
           </div>
-            <Button
-              onClick={() => {
-                setEditingId(null);
-                setDialogOpen(true);
-              }}
-            >
-              <IconFilePlus className="mr-2 size-4" />
-              Add Batch
-            </Button>
+          <Button
+            onClick={() => {
+              setEditingId(null);
+              setDialogOpen(true);
+            }}
+          >
+            <IconFilePlus className="mr-2 size-4" />
+            Add Batch
+          </Button>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Select
-            value={productId || "__all__"}
-            onValueChange={(value) => {
-              setProductId(value === "__all__" ? "" : (value ?? ""));
-              setPageIndex(0);
-            }}
-          >
-            <SelectTrigger className="w-full min-w-0 sm:w-48">
-              <SelectValue placeholder="All products" />
-            </SelectTrigger>
-            <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="__all__">All products</SelectItem>
-              {products.map((product) => (
-                <SelectItem key={product.id} value={product.id}>
-                  {product.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={supplierId || "__all__"}
-            onValueChange={(value) => {
-              setSupplierId(value === "__all__" ? "" : (value ?? ""));
-              setPageIndex(0);
-            }}
-          >
-            <SelectTrigger className="w-full min-w-0 sm:w-48">
-              <SelectValue placeholder="All suppliers" />
-            </SelectTrigger>
-            <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="__all__">All suppliers</SelectItem>
-              {suppliers.map((supplier) => (
-                <SelectItem key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={expiredOnly}
-            onValueChange={(value) => {
-              setExpiredOnly((value as "all" | "true" | "false") ?? "all");
-              setPageIndex(0);
-            }}
-          >
-            <SelectTrigger className="w-full min-w-0 sm:w-40">
-              <SelectValue placeholder="Expiry filter" />
-            </SelectTrigger>
-            <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="false">Non-expired</SelectItem>
-              <SelectItem value="true">Expired only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {typeof error === "string" ? error : "Failed to load batches."}
-          </div>
-        ) : null}
-
-        <ListDataTable
+        <DashboardDataTable
           columns={columns}
           data={paginatedBatches}
           loading={loading}
-          pageIndex={pageIndex}
+          pageIndex={page - 1}
           pageSize={pageSize}
           pageCount={pageCount}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
+          onPageChange={(index: number) => {
+            const nextPage = Math.min(Math.max(index + 1, 1), pageCount);
+            setPage(nextPage);
+          }}
+          onPageSizeChange={(size: number) => {
+            setPageSize(size);
+            setPage(1);
+          }}
           emptyMessage="No batches found for the selected filters."
+          enableColumnVisibility={true}
+          renderDetails={renderDetails}
+          detailsTitle={(batch) => batch.batchNumber}
+          detailsDescription={(batch) => {
+            const expiry = new Date(batch.expiryDate);
+            if (Number.isNaN(expiry.getTime())) return batch.product?.name ?? "—";
+            return `${batch.product?.name ?? "—"} • Expires ${dateFormatter.format(expiry)}`;
+          }}
+          renderDetailsFooter={(batch, onClose) => (
+            <Button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+                setTimeout(() => {
+                  router.push(`/batches/${batch.id}/edit`);
+                }, 0);
+              }}
+              className="w-full"
+            >
+              <IconPencil className="mr-2 size-4" />
+              Edit Batch
+            </Button>
+          )}
+          headerFilters={
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <Select
+                value={productId || "__all__"}
+                onValueChange={(value) => {
+                  setProductId(value === "__all__" ? "" : (value ?? ""));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="All products" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All products</SelectItem>
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={supplierId || "__all__"}
+                onValueChange={(value) => {
+                  setSupplierId(value === "__all__" ? "" : (value ?? ""));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="All suppliers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All suppliers</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={expiredOnly}
+                onValueChange={(value) => {
+                  setExpiredOnly((value as "all" | "true" | "false") ?? "all");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Expiry filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="false">Non-expired</SelectItem>
+                  <SelectItem value="true">Expired only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          }
         />
       </div>
 
@@ -443,125 +497,6 @@ export default function BatchesPage() {
           />
         </DialogContent>
       </Dialog>
-
-      <Drawer
-        open={viewOpen}
-        onOpenChange={(open) => {
-          setViewOpen(open);
-          if (!open) {
-            setViewId(null);
-          }
-        }}
-        direction={isMobile ? "bottom" : "right"}
-      >
-        <DrawerContent className="max-h-[95vh] sm:max-w-lg">
-          <DrawerHeaderSection className="gap-1">
-            <DrawerTitle>{selectedBatch?.batchNumber ?? "Batch details"}</DrawerTitle>
-            {selectedBatch ? (
-              <DrawerDescription>
-                {selectedBatch.product?.name ?? "—"} •{" "}
-                {(() => {
-                  const expiry = new Date(selectedBatch.expiryDate);
-                  if (Number.isNaN(expiry.getTime())) return "No expiry date";
-                  return `Expires ${dateFormatter.format(expiry)}`;
-                })()}
-              </DrawerDescription>
-            ) : null}
-          </DrawerHeaderSection>
-          <div className="space-y-6 px-4 pb-4">
-            {selectedBatch ? (
-              <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 text-sm">
-                <div>
-                  <div className="text-xs text-muted-foreground">Batch number</div>
-                  <div className="font-medium text-foreground">{selectedBatch.batchNumber}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Product</div>
-                  <div className="font-medium text-foreground">{selectedBatch.product?.name ?? "—"}</div>
-                  {selectedBatch.product?.category?.name ? (
-                    <div className="text-xs text-muted-foreground">{selectedBatch.product.category.name}</div>
-                  ) : null}
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Supplier</div>
-                  <div className="font-medium text-foreground">{selectedBatch.supplier?.name ?? "—"}</div>
-                  {selectedBatch.supplier?.contact ? (
-                    <div className="text-xs text-muted-foreground">{selectedBatch.supplier.contact}</div>
-                  ) : null}
-                  {selectedBatch.supplier?.email ? (
-                    <div className="text-xs text-muted-foreground">{selectedBatch.supplier.email}</div>
-                  ) : null}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Quantity</div>
-                    <div className="font-medium tabular-nums">{selectedBatch.quantity.toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Purchase price</div>
-                    <div className="font-medium tabular-nums">
-                      {currencyFormatter.format(Number(selectedBatch.purchasePrice ?? 0))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Selling price</div>
-                    <div className="font-medium tabular-nums">
-                      {currencyFormatter.format(Number(selectedBatch.sellingPrice ?? 0))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Created</div>
-                    <div className="font-medium text-foreground">
-                      {selectedBatch.createdAt ? new Date(selectedBatch.createdAt).toLocaleString() : "—"}
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Expiry</div>
-                  {(() => {
-                    const expiry = new Date(selectedBatch.expiryDate);
-                    if (Number.isNaN(expiry.getTime())) {
-                      return <div className="font-medium text-foreground">—</div>;
-                    }
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const expired = expiry < today;
-                    return (
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{dateFormatter.format(expiry)}</span>
-                        <Badge variant={expired ? "destructive" : "outline"} className="text-xs uppercase">
-                          {expired ? "Expired" : "Active"}
-                        </Badge>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">No batch details available.</div>
-            )}
-          </div>
-          <DrawerFooterSection>
-            {selectedBatch ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setViewOpen(false);
-                  setEditingId(selectedBatch.id);
-                  setDialogOpen(true);
-                }}
-              >
-                <IconPencil className="mr-2 size-4" />
-                Edit batch
-              </Button>
-            ) : null}
-            <DrawerClose asChild>
-              <Button variant="secondary">Close</Button>
-            </DrawerClose>
-          </DrawerFooterSection>
-        </DrawerContent>
-      </Drawer>
     </div>
   );
 }
-

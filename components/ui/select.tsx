@@ -25,7 +25,7 @@ const Select = ({
       </SelectPrimitive.Root>
     </SelectFooterContext.Provider>
   )
-}
+    }
 Select.displayName = SelectPrimitive.Root.displayName
 
 const SelectGroup = SelectPrimitive.Group
@@ -99,7 +99,7 @@ const SelectContent = React.forwardRef<
   const context = React.useContext(SelectFooterContext)
   const footerButton = propFooterButton || context.footerButton
 
-  return (
+    return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         ref={ref}
@@ -161,7 +161,7 @@ const SelectItem = React.forwardRef<
       ref={ref}
       className={cn(
         "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        className
+  className
       )}
       value={value}
       {...props}

@@ -513,16 +513,16 @@ export function DashboardDataTable<TData extends { id: string | number }>({
   if (!tabs || tabs.length === 0) {
     return (
       <div className="w-full flex flex-col justify-start gap-6">
-        <div className="flex items-center justify-between gap-4 px-4 lg:px-6">
-          <div className="flex flex-1 items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-4 lg:px-6">
+          <div className="flex flex-1 items-stretch sm:items-center gap-2 min-w-0">
             {headerFilters}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {headerActions}
             {columnEditorElement}
           </div>
         </div>
-        <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
+        <div className="relative flex flex-col gap-4 overflow-x-auto px-4 lg:px-6">
           {renderTableContent()}
         </div>
         {renderDetails && selectedItem && (
@@ -565,45 +565,47 @@ export function DashboardDataTable<TData extends { id: string | number }>({
       onValueChange={handleTabChange}
       className="w-full flex-col justify-start gap-6"
     >
-      <div className="flex items-center justify-between px-4 lg:px-6">
-        <>
-          <Label htmlFor="view-selector" className="sr-only">
-            View
-          </Label>
-          <Select value={currentTab} onValueChange={handleTabChange}>
-            <SelectTrigger
-              className="flex w-fit @4xl/main:hidden"
-              size="sm"
-              id="view-selector"
-            >
-              <SelectValue placeholder="Select a view" />
-            </SelectTrigger>
-            <SelectContent>
+      <div className="flex flex-col gap-4 px-4 lg:px-6">
+        <div className="flex items-center justify-between">
+          <>
+            <Label htmlFor="view-selector" className="sr-only">
+              View
+            </Label>
+            <Select value={currentTab} onValueChange={handleTabChange}>
+              <SelectTrigger
+                className="flex w-fit @4xl/main:hidden"
+                size="sm"
+                id="view-selector"
+              >
+                <SelectValue placeholder="Select a view" />
+              </SelectTrigger>
+              <SelectContent>
+                {tabs.map((tab) => (
+                  <SelectItem key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
               {tabs.map((tab) => (
-                <SelectItem key={tab.value} value={tab.value}>
+                <TabsTrigger key={tab.value} value={tab.value}>
                   {tab.label}
-                </SelectItem>
+                  {tab.badge !== undefined && (
+                    <Badge variant="secondary" className="ml-1">
+                      {tab.badge}
+                    </Badge>
+                  )}
+                </TabsTrigger>
               ))}
-            </SelectContent>
-          </Select>
-          <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
-            {tabs.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}
-                {tab.badge !== undefined && (
-                  <Badge variant="secondary" className="ml-1">
-                    {tab.badge}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-1 items-center gap-2">
+            </TabsList>
+          </>
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div className="flex flex-1 items-stretch sm:items-center gap-2 min-w-0">
             {headerFilters}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {headerActions}
             {columnEditorElement}
           </div>
@@ -613,7 +615,7 @@ export function DashboardDataTable<TData extends { id: string | number }>({
         <TabsContent
           key={tab.value}
           value={tab.value}
-          className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6"
+          className="relative flex flex-col gap-4 overflow-x-auto px-4 lg:px-6"
         >
           {renderTableContent()}
         </TabsContent>

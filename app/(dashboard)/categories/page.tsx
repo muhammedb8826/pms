@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   IconDotsVertical,
   IconFilePlus,
   IconPencil,
   IconSettings,
-  IconTrash,
 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,19 +31,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter as DrawerFooterSection,
-  DrawerHeader as DrawerHeaderSection,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
-import { ListDataTable } from "@/components/list-data-table";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useCategories, useCategory, useDeleteCategory } from "@/features/category/hooks/useCategories";
+import { DashboardDataTable } from "@/components/dashboard-data-table";
+import { useCategories, useDeleteCategory } from "@/features/category/hooks/useCategories";
 import type { Category } from "@/features/category/types";
 import { CategoryForm } from "@/features/category/components/CategoryForm";
 import { handleApiError, handleApiSuccess } from "@/lib/utils/api-error-handler";
@@ -51,7 +41,7 @@ import { handleApiError, handleApiSuccess } from "@/lib/utils/api-error-handler"
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 export default function CategoriesPage() {
-  const isMobile = useIsMobile();
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
@@ -77,10 +67,6 @@ export default function CategoriesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewId, setViewId] = useState<string | null>(null);
-  const viewQuery = useCategory(viewId ?? undefined);
-
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const deleteMutation = useDeleteCategory();
 
@@ -99,27 +85,61 @@ export default function CategoriesPage() {
     [deleteMutation, refetch],
   );
 
-  const handleView = useCallback((category: Category) => {
-    setViewId(category.id);
-    setViewOpen(true);
-  }, []);
-
   const handleEdit = useCallback((category: Category) => {
-    setEditing(category);
-    setDialogOpen(true);
-  }, []);
+    router.push(`/categories/${category.id}/edit`);
+  }, [router]);
 
-  const handlePageChange = useCallback(
-    (nextIndex: number) => {
-      const nextPage = Math.min(Math.max(nextIndex + 1, 1), pageCount);
-      setPage(nextPage);
-    },
-    [pageCount],
-  );
-
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setPage(1);
+  const renderDetails = useCallback((category: Category) => {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 text-sm">
+          <div>
+            <div className="text-xs text-muted-foreground">Name</div>
+            <div className="font-medium text-foreground">{category.name}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Description</div>
+            <div className="text-foreground">{category.description ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Created</div>
+            <div className="text-foreground">
+              {category.createdAt ? dateFormatter.format(new Date(category.createdAt)) : "—"}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Last updated</div>
+            <div className="text-foreground">
+              {category.updatedAt ? dateFormatter.format(new Date(category.updatedAt)) : "—"}
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              Products ({category.products?.length ?? 0})
+            </span>
+            <Badge variant="outline">{category.products?.length ?? 0}</Badge>
+          </div>
+          {category.products && category.products.length > 0 ? (
+            <ul className="grid gap-3 rounded-lg border bg-background p-3 text-sm">
+              {category.products.map((product) => (
+                <li key={product.id}>
+                  <div className="font-medium text-foreground">{product.name}</div>
+                  {product.description ? (
+                    <div className="text-xs text-muted-foreground">{product.description}</div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              No products assigned to this category yet.
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }, []);
 
   const columns = useMemo<ColumnDef<Category>[]>(() => {
@@ -127,18 +147,11 @@ export default function CategoriesPage() {
       {
         accessorKey: "name",
         header: "Category",
-        cell: ({ row }) => {
-          const category = row.original;
-          return (
-            <button
-              type="button"
-              onClick={() => handleView(category)}
-              className="text-left text-sm font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              {category.name}
-            </button>
-          );
-        },
+        cell: ({ row }) => (
+          <span className="text-sm font-semibold">
+            {row.original.name}
+          </span>
+        ),
       },
       {
         accessorKey: "description",
@@ -185,6 +198,9 @@ export default function CategoriesPage() {
                     size="icon"
                     className="text-muted-foreground data-[state=open]:bg-muted"
                     aria-label="Open category actions"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
@@ -193,15 +209,11 @@ export default function CategoriesPage() {
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
-                      handleView(category);
-                    }}
-                  >
-                    View details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
+                      event.stopPropagation();
                       handleEdit(category);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                     }}
                   >
                     Edit category
@@ -223,10 +235,14 @@ export default function CategoriesPage() {
         },
       },
     ];
-  }, [handleEdit, handleView]);
+  }, [handleEdit]);
+
+  if (error) {
+    return <div className="p-4 text-sm text-destructive">Error: {error}</div>;
+  }
 
   return (
-    <div className="flex flex-col gap-4 overflow-x-hidden p-4">
+    <div className="flex flex-col gap-4 p-4 overflow-x-hidden">
       <div className="flex flex-col gap-4 rounded-xl border bg-background p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
           <div>
@@ -247,65 +263,86 @@ export default function CategoriesPage() {
           </Button>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Input
-            placeholder="Search categories..."
-            className="w-full min-w-0 sm:w-56"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-          />
-          <Select
-            value={sortBy}
-            onValueChange={(value) => {
-              setSortBy(value || "name");
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="createdAt">Created</SelectItem>
-              <SelectItem value="updatedAt">Updated</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={sortOrder}
-            onValueChange={(value) => {
-              setSortOrder((value || "asc") as "asc" | "desc");
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-32">
-              <SelectValue placeholder="Order" />
-            </SelectTrigger>
-            <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="asc">Ascending</SelectItem>
-              <SelectItem value="desc">Descending</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {typeof error === "string" ? error : "Failed to load categories."}
-          </div>
-        ) : null}
-
-        <ListDataTable
+        <DashboardDataTable
           columns={columns}
           data={categories}
           loading={loading}
           pageIndex={page - 1}
           pageSize={pageSize}
           pageCount={pageCount}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
+          onPageChange={(index: number) => {
+            const nextPage = Math.min(Math.max(index + 1, 1), pageCount);
+            setPage(nextPage);
+          }}
+          onPageSizeChange={(size: number) => {
+            setPageSize(size);
+            setPage(1);
+          }}
           emptyMessage="No categories found"
+          enableColumnVisibility={true}
+          renderDetails={renderDetails}
+          detailsTitle={(category) => category.name}
+          detailsDescription={(category) => category.description || ""}
+          renderDetailsFooter={(category, onClose) => (
+            <Button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+                setTimeout(() => {
+                  router.push(`/categories/${category.id}/edit`);
+                }, 0);
+              }}
+              className="w-full"
+            >
+              <IconPencil className="mr-2 size-4" />
+              Edit Category
+            </Button>
+          )}
+          headerFilters={
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <Input
+                placeholder="Search categories..."
+                className="w-full min-w-0 sm:w-56"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+              />
+              <Select
+                value={sortBy}
+                onValueChange={(value) => {
+                  setSortBy(value || "name");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="createdAt">Created</SelectItem>
+                  <SelectItem value="updatedAt">Updated</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={sortOrder}
+                onValueChange={(value) => {
+                  setSortOrder((value || "asc") as "asc" | "desc");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-32">
+                  <SelectValue placeholder="Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          }
         />
       </div>
 
@@ -362,118 +399,6 @@ export default function CategoriesPage() {
         </DialogContent>
       </Dialog>
 
-      <Drawer
-        open={viewOpen}
-        onOpenChange={(open) => {
-          setViewOpen(open);
-          if (!open) {
-            setViewId(null);
-          }
-        }}
-        direction={isMobile ? "bottom" : "right"}
-      >
-        <DrawerContent className="max-h-[95vh] sm:max-w-md">
-          <DrawerHeaderSection className="gap-1">
-            <DrawerTitle>{viewQuery.data?.name ?? "Category details"}</DrawerTitle>
-            {viewQuery.data?.description ? (
-              <DrawerDescription>{viewQuery.data.description}</DrawerDescription>
-            ) : null}
-          </DrawerHeaderSection>
-          <div className="space-y-6 px-4 pb-4">
-            {viewQuery.isLoading ? (
-              <div className="text-sm text-muted-foreground">Loading…</div>
-            ) : viewQuery.error ? (
-              <div className="text-sm text-destructive">
-                {viewQuery.error instanceof Error ? viewQuery.error.message : "Failed to load category"}
-              </div>
-            ) : viewQuery.data ? (
-              <>
-                <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 text-sm">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Name</div>
-                    <div className="font-medium text-foreground">{viewQuery.data.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Description</div>
-                    <div className="text-foreground">{viewQuery.data.description ?? "—"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Created</div>
-                    <div className="text-foreground">
-                      {viewQuery.data.createdAt ? dateFormatter.format(new Date(viewQuery.data.createdAt)) : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Last updated</div>
-                    <div className="text-foreground">
-                      {viewQuery.data.updatedAt ? dateFormatter.format(new Date(viewQuery.data.updatedAt)) : "—"}
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Products ({viewQuery.data.products?.length ?? 0})
-                    </span>
-                    <Badge variant="outline">{viewQuery.data.products?.length ?? 0}</Badge>
-                  </div>
-                  {viewQuery.data.products && viewQuery.data.products.length > 0 ? (
-                    <ul className="grid gap-3 rounded-lg border bg-background p-3 text-sm">
-                      {viewQuery.data.products.map((product) => (
-                        <li key={product.id}>
-                          <div className="font-medium text-foreground">{product.name}</div>
-                          {product.description ? (
-                            <div className="text-xs text-muted-foreground">{product.description}</div>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                      No products assigned to this category yet.
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="text-sm text-muted-foreground">No category details available.</div>
-            )}
-          </div>
-          <DrawerFooterSection>
-            {viewQuery.data ? (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setViewOpen(false);
-                    setEditing(viewQuery.data ?? null);
-                    setDialogOpen(true);
-                  }}
-                >
-                  <IconPencil className="mr-2 size-4" />
-                  Edit category
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setViewOpen(false);
-                    if (viewQuery.data?.id) {
-                      setConfirmDeleteId(viewQuery.data.id);
-                    }
-                  }}
-                >
-                  <IconTrash className="mr-2 size-4" />
-                  Delete category
-                </Button>
-              </div>
-            ) : null}
-            <DrawerClose asChild>
-              <Button variant="secondary">Close</Button>
-            </DrawerClose>
-          </DrawerFooterSection>
-        </DrawerContent>
-      </Drawer>
-
       <AlertDialog
         open={Boolean(confirmDeleteId)}
         onOpenChange={(open) => {
@@ -508,4 +433,3 @@ export default function CategoriesPage() {
     </div>
   );
 }
-
