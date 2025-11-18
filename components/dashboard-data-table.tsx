@@ -115,6 +115,7 @@ export interface DashboardDataTableProps<TData extends { id: string | number }> 
   enableRowSelection?: boolean
   enableColumnVisibility?: boolean
   enableDragAndDrop?: boolean
+  headerFilters?: React.ReactNode
   headerActions?: React.ReactNode
   onDataReorder?: (newData: TData[]) => void
 }
@@ -138,6 +139,7 @@ export function DashboardDataTable<TData extends { id: string | number }>({
   enableRowSelection = false,
   enableColumnVisibility = true,
   enableDragAndDrop = false,
+  headerFilters,
   headerActions,
   onDataReorder,
 }: DashboardDataTableProps<TData>) {
@@ -231,11 +233,42 @@ export function DashboardDataTable<TData extends { id: string | number }>({
     onTabChange?.(value)
   }
 
-  const visibleColumns = enableColumnVisibility
-    ? table.getAllColumns().filter((column) => {
-        return column.getCanHide() && (column.id || 'accessorKey' in column.columnDef)
-      })
-    : []
+  // Create column editor element
+  const columnEditorElement = React.useMemo(() => {
+    if (!enableColumnVisibility) return null
+    const visibleColumns = table.getAllColumns().filter((column) => {
+      return column.getCanHide() && (column.id || 'accessorKey' in column.columnDef)
+    })
+    if (!visibleColumns.length) return null
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <IconLayoutColumns />
+            <span className="hidden lg:inline">Customize Columns</span>
+            <span className="lg:hidden">Columns</span>
+            <IconChevronDown />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {visibleColumns.map((column) => {
+            return (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                className="capitalize"
+                checked={column.getIsVisible()}
+                onCheckedChange={(value) =>
+                  column.toggleVisibility(!!value)
+                }
+              >
+                {column.id}
+              </DropdownMenuCheckboxItem>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }, [enableColumnVisibility, table])
 
   function DraggableRow({ row }: { row: Row<TData> }) {
     const { transform, transition, setNodeRef, isDragging } = useSortable({
@@ -478,38 +511,13 @@ export function DashboardDataTable<TData extends { id: string | number }>({
   if (!tabs || tabs.length === 0) {
     return (
       <div className="w-full flex flex-col justify-start gap-6">
-        <div className="flex items-center justify-between px-4 lg:px-6">
-          <div />
+        <div className="flex items-center justify-between gap-4 px-4 lg:px-6">
+          <div className="flex flex-1 items-center gap-2">
+            {headerFilters}
+          </div>
           <div className="flex items-center gap-2">
-            {enableColumnVisibility && visibleColumns.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <IconLayoutColumns />
-                    <span className="hidden lg:inline">Customize Columns</span>
-                    <span className="lg:hidden">Columns</span>
-                    <IconChevronDown />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  {visibleColumns.map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {column.id}
-                      </DropdownMenuCheckboxItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
             {headerActions}
+            {columnEditorElement}
           </div>
         </div>
         <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
@@ -588,36 +596,14 @@ export function DashboardDataTable<TData extends { id: string | number }>({
             ))}
           </TabsList>
         </>
-        <div className="flex items-center gap-2">
-          {enableColumnVisibility && visibleColumns.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <IconLayoutColumns />
-                  <span className="hidden lg:inline">Customize Columns</span>
-                  <span className="lg:hidden">Columns</span>
-                  <IconChevronDown />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {visibleColumns.map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {headerActions}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-1 items-center gap-2">
+            {headerFilters}
+          </div>
+          <div className="flex items-center gap-2">
+            {headerActions}
+            {columnEditorElement}
+          </div>
         </div>
       </div>
       {tabs.map((tab) => (

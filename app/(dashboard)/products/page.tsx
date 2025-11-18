@@ -45,7 +45,7 @@ import {
   DrawerHeader as DrawerHeaderSection,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import { ListDataTable } from '@/components/list-data-table';
+import { DashboardDataTable } from '@/components/dashboard-data-table';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import { useProducts, useProduct, useDeleteProduct } from '@/features/product/hooks/useProducts';
@@ -345,6 +345,72 @@ export default function ProductsPage() {
     }
   }, [downloadTemplate]);
 
+  const renderDetails = useCallback((product: Product) => {
+    return (
+      <div className="space-y-6">
+        {product.image ? (
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <div className="mb-2 text-xs text-muted-foreground">Product image</div>
+            <div className="relative aspect-square w-full overflow-hidden rounded-md bg-background">
+              <Image
+                fill
+                src={resolveImageUrl(product.image)}
+                alt={product.name}
+                className="object-contain"
+              />
+            </div>
+          </div>
+        ) : null}
+        <div className="grid gap-4 text-sm">
+          <div>
+            <div className="text-xs text-muted-foreground">Category</div>
+            <div className="font-medium text-foreground">{product.category?.name ?? '—'}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-muted-foreground">Manufacturer</div>
+              <div className="font-medium text-foreground">{product.manufacturer?.name ?? '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Default UOM</div>
+              <div className="font-medium text-foreground">
+                {product.defaultUom
+                  ? `${product.defaultUom.name}${product.defaultUom.abbreviation ? ` (${product.defaultUom.abbreviation})` : ''}`
+                  : '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Quantity</div>
+              <div className="font-medium tabular-nums">{product.quantity}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Min level</div>
+              <div className="font-medium tabular-nums">{product.minLevel ?? '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Purchase price</div>
+              <div className="font-medium tabular-nums">
+                {currencyFormatter.format(Number(product.purchasePrice ?? 0))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Selling price</div>
+              <div className="font-medium tabular-nums">
+                {currencyFormatter.format(Number(product.sellingPrice ?? 0))}
+              </div>
+            </div>
+          </div>
+          {product.description ? (
+            <div>
+              <div className="mb-1 text-xs text-muted-foreground">Description</div>
+              <p className="whitespace-pre-wrap text-foreground">{product.description}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }, []);
+
   if (error) {
     return <div className="p-4 text-sm text-destructive">Error: {error}</div>;
   }
@@ -358,87 +424,94 @@ export default function ProductsPage() {
             <p className="text-sm text-muted-foreground">Manage your product catalogue, pricing, and availability.</p>
             <p className="mt-1 text-xs text-muted-foreground">Total products: {total}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportChange} />
-            <Button variant="outline" onClick={handleImportClick}>
-              <IconUpload className="mr-2 size-4" />
-              Import
-            </Button>
-            <Button variant="outline" onClick={handleDownloadTemplate}>
-              <IconFileDownload className="mr-2 size-4" />
-              Template
-            </Button>
-            <Button onClick={() => router.push('/products/new')}>
-              <IconPlus className="mr-2 size-4" />
-              Add Product
-            </Button>
-          </div>
+          <Button onClick={() => router.push('/products/new')}>
+            <IconPlus className="mr-2 size-4" />
+            Add Product
+          </Button>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Input
-            placeholder="Search products..."
-            className="w-full min-w-0 sm:w-56"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-          />
-          <Select
-            value={sortBy}
-            onValueChange={(value) => {
-              setSortBy(value || 'name');
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="genericName">Generic</SelectItem>
-              <SelectItem value="purchasePrice">Purchase price</SelectItem>
-              <SelectItem value="sellingPrice">Selling price</SelectItem>
-              <SelectItem value="quantity">Quantity</SelectItem>
-              <SelectItem value="status">Status</SelectItem>
-              <SelectItem value="createdAt">Created</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={sortOrder}
-            onValueChange={(value) => {
-              const next = (value?.toUpperCase() as 'ASC' | 'DESC') || 'ASC';
-              setSortOrder(next);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-32">
-              <SelectValue placeholder="Order" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ASC">Ascending</SelectItem>
-              <SelectItem value="DESC">Descending</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <ListDataTable
+        <DashboardDataTable
           columns={columns}
           data={products}
           loading={loading}
           pageIndex={page - 1}
           pageSize={pageSize}
           pageCount={pageCount}
-          onPageChange={(index) => {
+          onPageChange={(index: number) => {
             const nextPage = Math.min(Math.max(index + 1, 1), pageCount);
             setPage(nextPage);
           }}
-          onPageSizeChange={(size) => {
+          onPageSizeChange={(size: number) => {
             setPageSize(size);
             setPage(1);
           }}
           emptyMessage="No products found"
+          enableColumnVisibility={true}
+          renderDetails={renderDetails}
+          detailsTitle={(product) => product.name}
+          detailsDescription={(product) => product.genericName || ''}
+          headerFilters={
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="Search products..."
+                className="w-full min-w-0 sm:w-56"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+              />
+              <Select
+                value={sortBy}
+                onValueChange={(value) => {
+                  setSortBy(value || 'name');
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="genericName">Generic</SelectItem>
+                  <SelectItem value="purchasePrice">Purchase price</SelectItem>
+                  <SelectItem value="sellingPrice">Selling price</SelectItem>
+                  <SelectItem value="quantity">Quantity</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="createdAt">Created</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={sortOrder}
+                onValueChange={(value) => {
+                  const next = (value?.toUpperCase() as 'ASC' | 'DESC') || 'ASC';
+                  setSortOrder(next);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-32">
+                  <SelectValue placeholder="Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ASC">Ascending</SelectItem>
+                  <SelectItem value="DESC">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          }
+          headerActions={
+            <div className="flex flex-wrap items-center gap-2">
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportChange} />
+              <Button variant="outline" onClick={handleImportClick}>
+                <IconUpload className="mr-2 size-4" />
+                Import
+              </Button>
+              <Button variant="outline" onClick={handleDownloadTemplate}>
+                <IconFileDownload className="mr-2 size-4" />
+                Template
+              </Button>
+            </div>
+          }
         />
       </div>
 
