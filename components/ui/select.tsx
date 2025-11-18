@@ -1,334 +1,204 @@
 "use client"
 
 import * as React from "react"
-import ReactSelect, { components } from "react-select"
-import type { MenuListProps } from "react-select"
+import * as SelectPrimitive from "@radix-ui/react-select"
+import { Check, ChevronDown, ChevronUp } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 
-// Special value to represent "None" or empty selection
-export const NONE_VALUE = "__none__"
-
-export interface SelectOption {
-  value: string
-  label: string
-}
-
-export interface SelectProps {
-  value?: string
-  defaultValue?: string
-  onValueChange?: (value: string | undefined) => void
-  placeholder?: string
-  options?: SelectOption[]
-  disabled?: boolean
-  className?: string
-  id?: string
-  "aria-invalid"?: boolean
-  children?: React.ReactNode
-  size?: "sm" | "default"
+// Context for footerButton support
+const SelectFooterContext = React.createContext<{
   footerButton?: React.ReactNode
-}
+}>({})
 
-// Helper to extract options from children (backward compatibility)
-function extractOptionsFromChildren(children: React.ReactNode): SelectOption[] {
-  const options: SelectOption[] = []
-  
-  React.Children.forEach(children, (child) => {
-    if (React.isValidElement(child)) {
-      if (child.type === SelectContent) {
-        const contentProps = child.props as { children?: React.ReactNode }
-        React.Children.forEach(contentProps.children, (item) => {
-          if (React.isValidElement(item) && item.type === SelectItem) {
-            const itemProps = item.props as { value: string; children: React.ReactNode }
-            const itemValue = itemProps.value
-            const itemLabel = typeof itemProps.children === 'string' 
-              ? itemProps.children 
-              : React.Children.toArray(itemProps.children).filter(Boolean).join('')
-            
-            if (itemValue === "") {
-              options.push({ value: NONE_VALUE, label: itemLabel || "None" })
-            } else {
-              options.push({ value: itemValue, label: itemLabel })
-            }
-          }
-        })
-      } else if (child.type === SelectItem) {
-        const itemProps = child.props as { value: string; children: React.ReactNode }
-        const itemValue = itemProps.value
-        const itemLabel = typeof itemProps.children === 'string' 
-          ? itemProps.children 
-          : React.Children.toArray(itemProps.children).filter(Boolean).join('')
-        
-        if (itemValue === "") {
-          options.push({ value: NONE_VALUE, label: itemLabel || "None" })
-        } else {
-          options.push({ value: itemValue, label: itemLabel })
-        }
-      }
-    }
-  })
-  
-  return options
-}
-
-// Main Select component
-function Select({
-  value,
-  defaultValue,
-  onValueChange,
-  placeholder = "Select...",
-  options: providedOptions,
-  disabled = false,
-  className,
-  id,
-  "aria-invalid": ariaInvalid,
-  children,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  size = "default",
+const Select = ({
   footerButton,
+  children,
   ...props
-}: SelectProps & Omit<React.ComponentProps<typeof ReactSelect>, "options" | "value" | "onChange">) {
-  const options = React.useMemo(() => {
-    if (providedOptions && providedOptions.length > 0) {
-      return providedOptions
-    }
-    if (children) {
-      return extractOptionsFromChildren(children)
-    }
-    return []
-  }, [providedOptions, children])
+}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root> & {
+  footerButton?: React.ReactNode
+}) => {
+  return (
+    <SelectFooterContext.Provider value={{ footerButton }}>
+      <SelectPrimitive.Root {...props}>
+        {children}
+      </SelectPrimitive.Root>
+    </SelectFooterContext.Provider>
+  )
+}
+Select.displayName = SelectPrimitive.Root.displayName
 
-  const currentValue = value ?? defaultValue ?? ""
-  
-  const selectedOption = React.useMemo(() => {
-    if (currentValue === "") {
-      const noneOption = options.find(opt => opt.value === NONE_VALUE)
-      return noneOption || null
-    }
-    if (currentValue === NONE_VALUE) {
-      return options.find(opt => opt.value === NONE_VALUE) || null
-    }
-    return options.find(opt => opt.value === currentValue) || null
-  }, [currentValue, options])
+const SelectGroup = SelectPrimitive.Group
 
-  const handleChange = (selected: SelectOption | null) => {
-    if (!onValueChange) return
-    
-    if (selected === null || selected.value === NONE_VALUE) {
-      onValueChange(undefined)
-    } else {
-      onValueChange(selected.value)
-    }
+const SelectValue = SelectPrimitive.Value
+
+const SelectTrigger = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & {
+    size?: "sm" | "default"
   }
+>(({ className, children, size = "default", ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      size === "sm" && "h-8 px-2 text-xs",
+      className
+    )}
+    {...props}
+  >
+    {children}
+    <SelectPrimitive.Icon asChild>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </SelectPrimitive.Icon>
+  </SelectPrimitive.Trigger>
+))
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
 
-  // Extract placeholder from SelectValue if children are provided
-  const finalPlaceholder = React.useMemo(() => {
-    if (placeholder !== "Select...") return placeholder
-    if (!children) return placeholder
-    
-    let foundPlaceholder = placeholder
-    React.Children.forEach(children, (child) => {
-      if (React.isValidElement(child) && child.type === SelectTrigger) {
-        const triggerProps = child.props as { children?: React.ReactNode }
-        React.Children.forEach(triggerProps.children, (val) => {
-          if (React.isValidElement(val) && val.type === SelectValue) {
-            const valueProps = val.props as { placeholder?: string }
-            if (valueProps.placeholder) {
-              foundPlaceholder = valueProps.placeholder
-            }
-          }
-        })
-      }
-    })
-    return foundPlaceholder
-  }, [placeholder, children])
+const SelectScrollUpButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollUpButton
+    ref={ref}
+    className={cn(
+      "flex cursor-default items-center justify-center py-1",
+      className
+    )}
+    {...props}
+  >
+    <ChevronUp className="h-4 w-4" />
+  </SelectPrimitive.ScrollUpButton>
+))
+SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
 
-  // Custom MenuList component with footer button support
-  const MenuList = (menuListProps: MenuListProps<SelectOption, false>) => {
-    return (
-      <components.MenuList {...menuListProps}>
-        {menuListProps.children}
+const SelectScrollDownButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollDownButton
+    ref={ref}
+    className={cn(
+      "flex cursor-default items-center justify-center py-1",
+      className
+    )}
+    {...props}
+  >
+    <ChevronDown className="h-4 w-4" />
+  </SelectPrimitive.ScrollDownButton>
+))
+SelectScrollDownButton.displayName =
+  SelectPrimitive.ScrollDownButton.displayName
+
+const SelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & {
+    footerButton?: React.ReactNode
+  }
+>(({ className, children, position = "popper", footerButton: propFooterButton, ...props }, ref) => {
+  const context = React.useContext(SelectFooterContext)
+  const footerButton = propFooterButton || context.footerButton
+
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Content
+        ref={ref}
+        className={cn(
+          "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          position === "popper" &&
+            "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+          className
+        )}
+        position={position}
+        {...props}
+      >
+        <SelectScrollUpButton />
+        <SelectPrimitive.Viewport
+          className={cn(
+            "p-1",
+            position === "popper" &&
+              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+          )}
+        >
+          {children}
+        </SelectPrimitive.Viewport>
         {footerButton && (
           <div className="border-t border-border p-1 bg-popover">
             {footerButton}
           </div>
         )}
-      </components.MenuList>
-    )
+        <SelectScrollDownButton />
+      </SelectPrimitive.Content>
+    </SelectPrimitive.Portal>
+  )
+})
+SelectContent.displayName = SelectPrimitive.Content.displayName
+
+const SelectLabel = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Label
+    ref={ref}
+    className={cn("py-1.5 pl-8 pr-2 text-sm font-semibold", className)}
+    {...props}
+  />
+))
+SelectLabel.displayName = SelectPrimitive.Label.displayName
+
+const SelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, value, ...props }, ref) => {
+  // Radix UI Select doesn't allow empty string values
+  if (value === "") {
+    console.warn("SelectItem: value prop cannot be an empty string. Use a non-empty value or undefined instead.");
+    return null;
   }
-
-  // Inject styles once on mount with computed CSS variable values
-  React.useEffect(() => {
-    const styleId = 'react-select-styles'
-    if (document.getElementById(styleId)) return
-
-    // Get computed CSS variable values
-    const root = document.documentElement
-    const getComputedVar = (varName: string) => {
-      return getComputedStyle(root).getPropertyValue(varName).trim()
-    }
-
-    const popoverBg = getComputedVar('--popover') || 'oklch(1 0 0)'
-    const borderColor = getComputedVar('--border') || 'oklch(0.922 0 0)'
-    const accentBg = getComputedVar('--accent') || 'oklch(0.97 0 0)'
-    const accentFg = getComputedVar('--accent-foreground') || 'oklch(0.205 0 0)'
-
-    const style = document.createElement('style')
-    style.id = styleId
-    style.textContent = `
-      .react-select__menu {
-        background-color: ${popoverBg} !important;
-        border: 1px solid ${borderColor} !important;
-        border-radius: 0.375rem !important;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
-        z-index: 9999 !important;
-        margin-top: 0.25rem !important;
-        opacity: 1 !important;
-      }
-      .react-select__menu-list {
-        background-color: ${popoverBg} !important;
-        padding: 0.25rem !important;
-        max-height: 300px !important;
-        opacity: 1 !important;
-      }
-      .react-select__option {
-        background-color: ${popoverBg} !important;
-        opacity: 1 !important;
-      }
-      .react-select__option--is-focused {
-        background-color: ${accentBg} !important;
-        color: ${accentFg} !important;
-        opacity: 1 !important;
-      }
-      .react-select__option--is-selected {
-        background-color: ${accentBg} !important;
-        opacity: 0.7 !important;
-      }
-      .react-select__option:active {
-        background-color: ${accentBg} !important;
-        opacity: 1 !important;
-      }
-    `
-    document.head.appendChild(style)
-
-    return () => {
-      const existingStyle = document.getElementById(styleId)
-      if (existingStyle) {
-        existingStyle.remove()
-      }
-    }
-  }, [])
-
+  
   return (
-    <ReactSelect<SelectOption>
-      id={id}
-      value={selectedOption}
-      onChange={handleChange}
-      options={options}
-      placeholder={finalPlaceholder}
-      isDisabled={disabled}
-      isSearchable={true}
-      isClearable={false}
-      menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
-      menuPosition="absolute"
-      className={cn("react-select-container", className)}
-      classNamePrefix="react-select"
-      components={footerButton ? { MenuList } : undefined}
-      aria-invalid={ariaInvalid}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      {...(props as any)}
-    />
-  )
-}
+    <SelectPrimitive.Item
+      ref={ref}
+      className={cn(
+        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        className
+      )}
+      value={value}
+      {...props}
+    >
+      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+        <SelectPrimitive.ItemIndicator>
+          <Check className="h-4 w-4" />
+        </SelectPrimitive.ItemIndicator>
+      </span>
 
-// Compatibility components for backward compatibility
-function SelectContent({ 
-  children
-}: { 
-  children?: React.ReactNode
-  className?: string
-  position?: "popper" | "item-aligned"
-  align?: "start" | "center" | "end"
-}) {
-  return <>{children}</>
-}
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    </SelectPrimitive.Item>
+  );
+})
+SelectItem.displayName = SelectPrimitive.Item.displayName
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SelectItem(_: { 
-  value: string
-  children: React.ReactNode
-  className?: string
-}) {
-  return null
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SelectTrigger(_: { 
-  children?: React.ReactNode
-  className?: string
-  size?: "sm" | "default"
-  id?: string
-}) {
-  return null
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SelectValue(_: { 
-  placeholder?: string
-}) {
-  return null
-}
-
-function SelectGroup({ 
-  children
-}: { 
-  children?: React.ReactNode
-}) {
-  return <>{children}</>
-}
-
-function SelectLabel({ 
-  className, 
-  children
-}: { 
-  className?: string
-  children?: React.ReactNode
-}) {
-  return (
-    <div className={cn("text-muted-foreground px-2 py-1.5 text-xs", className)}>
-      {children}
-    </div>
-  )
-}
-
-function SelectSeparator({ 
-  className
-}: { 
-  className?: string
-}) {
-  return (
-    <div 
-      className={cn("bg-border pointer-events-none -mx-1 my-1 h-px", className)} 
-    />
-  )
-}
-
-function SelectScrollUpButton() {
-  return null
-}
-
-function SelectScrollDownButton() {
-  return null
-}
+const SelectSeparator = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Separator
+    ref={ref}
+    className={cn("-mx-1 my-1 h-px bg-muted", className)}
+    {...props}
+  />
+))
+SelectSeparator.displayName = SelectPrimitive.Separator.displayName
 
 export {
   Select,
-  SelectContent,
   SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
-  SelectSeparator,
-  SelectTrigger,
   SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
 }

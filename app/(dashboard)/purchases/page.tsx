@@ -84,23 +84,23 @@ export default function Page() {
         <h1 className="text-xl font-semibold">Purchases</h1>
         <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Input placeholder="Search..." className="w-full min-w-0 sm:w-48" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Select value={supplierId} onValueChange={(v) => setSupplierId(v || '')}>
+          <Select value={supplierId || "__all__"} onValueChange={(v) => setSupplierId(v === "__all__" ? "" : (v || ""))}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="All Suppliers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Suppliers</SelectItem>
+              <SelectItem value="__all__">All Suppliers</SelectItem>
               {allSuppliers.map((s) => (
                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={status} onValueChange={(v) => setStatus(v || '')}>
+          <Select value={status || "__all__"} onValueChange={(v) => setStatus(v === "__all__" ? "" : (v || ""))}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="__all__">All Status</SelectItem>
               <SelectItem value="PENDING">PENDING</SelectItem>
               <SelectItem value="COMPLETED">COMPLETED</SelectItem>
               <SelectItem value="PARTIALLY_RECEIVED">PARTIALLY_RECEIVED</SelectItem>

@@ -9,6 +9,7 @@ import '@/features/auth/api/authApi';
 import '@/features/user/api/userApi';
 import '@/features/auth/api/accountApi';
 import '@/features/credit/api/creditApi';
+import '@/features/dashboard/api/dashboardApi';
 
 export const makeStore = () => {
   return configureStore({

@@ -32,20 +32,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter as DrawerFooterSection,
-  DrawerHeader as DrawerHeaderSection,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
-import { ListDataTable } from "@/components/list-data-table";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useCredits, useCredit, useDeleteCredit } from "@/features/credit/hooks/useCredits";
-import type { Credit, CreditType, CreditStatus } from "@/features/credit/types";
+import { UnifiedDataTable } from "@/components/unified-data-table";
+import { useCredits, useDeleteCredit } from "@/features/credit/hooks/useCredits";
+import type { Credit, CreditStatus } from "@/features/credit/types";
 import { CreditType as CreditTypeEnum, CreditStatus as CreditStatusEnum } from "@/features/credit/types";
 import { CreditForm } from "@/features/credit/components/CreditForm";
 import { PaymentForm } from "@/features/credit/components/PaymentForm";
@@ -74,22 +64,38 @@ const getStatusBadgeVariant = (status: CreditStatus) => {
 };
 
 export default function CreditsPage() {
-  const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<CreditType | "">("");
+  const [activeTab, setActiveTab] = useState<"all" | "payable" | "receivable">("all");
   const [statusFilter, setStatusFilter] = useState<CreditStatus | "">("");
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
 
+  // Determine type filter based on active tab
+  const typeFilter = useMemo(() => {
+    if (activeTab === "payable") return CreditTypeEnum.PAYABLE;
+    if (activeTab === "receivable") return CreditTypeEnum.RECEIVABLE;
+    return undefined;
+  }, [activeTab]);
+
   const { credits, total, loading, error, refetch } = useCredits(page, pageSize, {
-    type: typeFilter || undefined,
+    type: typeFilter,
     status: statusFilter || undefined,
     search: search || undefined,
     sortBy,
     sortOrder,
   });
+
+  // Calculate tab badges
+  const payableCount = useMemo(() => {
+    // This would ideally come from a separate query, but for now we'll filter client-side
+    return credits.filter(c => c.type === CreditTypeEnum.PAYABLE).length;
+  }, [credits]);
+
+  const receivableCount = useMemo(() => {
+    return credits.filter(c => c.type === CreditTypeEnum.RECEIVABLE).length;
+  }, [credits]);
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize) || 1), [total, pageSize]);
 
@@ -107,9 +113,6 @@ export default function CreditsPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentCredit, setPaymentCredit] = useState<Credit | null>(null);
 
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewId, setViewId] = useState<string | null>(null);
-  const viewQuery = useCredit(viewId ?? undefined);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const deleteMutation = useDeleteCredit();
@@ -129,10 +132,6 @@ export default function CreditsPage() {
     [deleteMutation, refetch],
   );
 
-  const handleView = useCallback((credit: Credit) => {
-    setViewId(credit.id);
-    setViewOpen(true);
-  }, []);
 
   const handleEdit = useCallback((credit: Credit) => {
     setEditing(credit);
@@ -169,11 +168,7 @@ export default function CreditsPage() {
   const handlePaymentSuccess = useCallback(() => {
     handlePaymentDialogClose();
     refetch();
-    if (viewId === paymentCredit?.id) {
-      // Refresh view if we're viewing the same credit
-      refetch();
-    }
-  }, [handlePaymentDialogClose, refetch, viewId, paymentCredit]);
+  }, [handlePaymentDialogClose, refetch]);
 
   const handlePageChange = useCallback(
     (nextIndex: number) => {
@@ -209,13 +204,9 @@ export default function CreditsPage() {
           const credit = row.original;
           const name = credit.supplier?.name || credit.customer?.name || "—";
           return (
-            <button
-              type="button"
-              onClick={() => handleView(credit)}
-              className="text-left text-sm font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
+            <div className="text-left text-sm font-semibold">
               {name}
-            </button>
+            </div>
           );
         },
       },
@@ -294,14 +285,6 @@ export default function CreditsPage() {
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
-                      handleView(credit);
-                    }}
-                  >
-                    View details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
                       handleEdit(credit);
                     }}
                   >
@@ -337,19 +320,13 @@ export default function CreditsPage() {
         },
       },
     ];
-  }, [handleView, handleEdit, handleRecordPayment]);
+  }, [handleEdit, handleRecordPayment]);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Credits</h1>
-          <p className="text-sm text-muted-foreground">Manage payable and receivable credits</p>
-        </div>
-        <Button onClick={handleCreate}>
-          <IconFilePlus className="mr-2 size-4" />
-          Create Credit
-        </Button>
+      <div>
+        <h1 className="text-2xl font-semibold">Credits</h1>
+        <p className="text-sm text-muted-foreground">Manage payable and receivable credits</p>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row">
@@ -365,25 +342,9 @@ export default function CreditsPage() {
           />
         </div>
         <Select
-          value={typeFilter}
+          value={statusFilter || "__all__"}
           onValueChange={(value) => {
-            setTypeFilter(value as CreditType | "");
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent position="popper" className="z-[60]">
-            <SelectItem value="">All Types</SelectItem>
-            <SelectItem value={CreditTypeEnum.PAYABLE}>Payable</SelectItem>
-            <SelectItem value={CreditTypeEnum.RECEIVABLE}>Receivable</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => {
-            setStatusFilter(value as CreditStatus | "");
+            setStatusFilter(value === "__all__" ? "" : (value as CreditStatus));
             setPage(1);
           }}
         >
@@ -391,7 +352,7 @@ export default function CreditsPage() {
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent position="popper" className="z-[60]">
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="__all__">All Statuses</SelectItem>
             <SelectItem value={CreditStatusEnum.PENDING}>Pending</SelectItem>
             <SelectItem value={CreditStatusEnum.PARTIAL}>Partial</SelectItem>
             <SelectItem value={CreditStatusEnum.PAID}>Paid</SelectItem>
@@ -400,16 +361,151 @@ export default function CreditsPage() {
         </Select>
       </div>
 
-      <ListDataTable
-        columns={columns}
+      <UnifiedDataTable
         data={credits}
+        columns={columns}
         loading={loading}
+        emptyMessage="No credits found"
+        tabs={[
+          { value: "all", label: "All", badge: total },
+          { value: "payable", label: "Payable", badge: payableCount },
+          { value: "receivable", label: "Receivable", badge: receivableCount },
+        ]}
+        defaultTab={activeTab}
+        onTabChange={(value: string) => {
+          setActiveTab(value as "all" | "payable" | "receivable");
+          setPage(1);
+        }}
         pageIndex={page - 1}
         pageSize={pageSize}
         pageCount={pageCount}
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
-        emptyMessage="No credits found"
+        renderDetails={(credit: Credit) => {
+          // Use the credit data directly, or fetch if needed
+          const creditData = credit;
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Type</p>
+                  <Badge variant={creditData.type === CreditTypeEnum.PAYABLE ? "secondary" : "outline"}>
+                    {creditData.type}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge variant={getStatusBadgeVariant(creditData.status)}>
+                    {creditData.status}
+                  </Badge>
+                </div>
+              </div>
+              {creditData.supplier && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Supplier</p>
+                  <p className="font-medium">{creditData.supplier.name}</p>
+                </div>
+              )}
+              {creditData.customer && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Customer</p>
+                  <p className="font-medium">{creditData.customer.name}</p>
+                </div>
+              )}
+              {creditData.purchase && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Purchase</p>
+                  <p className="font-medium">{creditData.purchase.invoiceNo}</p>
+                </div>
+              )}
+              {creditData.sale && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Sale</p>
+                  <p className="font-medium">{creditData.sale.invoiceNo || creditData.sale.id}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Amount</p>
+                  <p className="font-semibold">{currencyFormatter.format(parseFloat(creditData.totalAmount))}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Paid Amount</p>
+                  <p className="font-semibold">{currencyFormatter.format(parseFloat(creditData.paidAmount))}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Balance Amount</p>
+                  <p className="font-semibold text-destructive">
+                    {currencyFormatter.format(parseFloat(creditData.balanceAmount))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Due Date</p>
+                  <p className="font-medium">
+                    {creditData.dueDate ? dateFormatter.format(new Date(creditData.dueDate)) : "—"}
+                  </p>
+                </div>
+              </div>
+              {creditData.notes && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Notes</p>
+                  <p className="text-sm">{creditData.notes}</p>
+                </div>
+              )}
+              {creditData.payments && creditData.payments.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Payment History</p>
+                  <div className="border rounded-lg divide-y">
+                    {creditData.payments.map((payment) => (
+                      <div key={payment.id} className="p-3 space-y-1">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{currencyFormatter.format(parseFloat(payment.amount))}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {payment.paymentMethod.replace(/_/g, ' ')}
+                              </Badge>
+                            </div>
+                            {payment.referenceNumber && (
+                              <p className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</p>
+                            )}
+                            {payment.notes && (
+                              <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
+                            )}
+                          </div>
+                          <div className="text-right text-xs text-muted-foreground">
+                            <p>{dateFormatter.format(new Date(payment.paymentDate))}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                <div>
+                  <p>Created</p>
+                  <p>{dateFormatter.format(new Date(creditData.createdAt))}</p>
+                </div>
+                <div>
+                  <p>Updated</p>
+                  <p>{dateFormatter.format(new Date(creditData.updatedAt))}</p>
+                </div>
+              </div>
+            </div>
+          );
+        }}
+        detailsTitle={() => `Credit Details`}
+        detailsDescription={(credit: Credit) => {
+          const name = credit.supplier?.name || credit.customer?.name || "Credit";
+          return `${name} - ${credit.type}`;
+        }}
+        headerActions={
+          <Button onClick={handleCreate}>
+            <IconFilePlus className="mr-2 size-4" />
+            Create Credit
+          </Button>
+        }
       />
 
       {/* Create/Edit Dialog */}
@@ -446,310 +542,6 @@ export default function CreditsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View Drawer */}
-      {isMobile ? (
-        <Drawer open={viewOpen} onOpenChange={setViewOpen}>
-          <DrawerContent>
-            <DrawerHeaderSection>
-              <DrawerTitle>Credit Details</DrawerTitle>
-              <DrawerDescription>View credit information</DrawerDescription>
-            </DrawerHeaderSection>
-            <div className="overflow-y-auto px-4 pb-4">
-              {viewQuery.isLoading ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
-              ) : viewQuery.data ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Type</p>
-                      <Badge variant={viewQuery.data.type === CreditTypeEnum.PAYABLE ? "secondary" : "outline"}>
-                        {viewQuery.data.type}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      <Badge variant={getStatusBadgeVariant(viewQuery.data.status)}>
-                        {viewQuery.data.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  {viewQuery.data.supplier && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Supplier</p>
-                      <p className="font-medium">{viewQuery.data.supplier.name}</p>
-                    </div>
-                  )}
-                  {viewQuery.data.customer && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Customer</p>
-                      <p className="font-medium">{viewQuery.data.customer.name}</p>
-                    </div>
-                  )}
-                  {viewQuery.data.purchase && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Purchase</p>
-                      <p className="font-medium">{viewQuery.data.purchase.invoiceNo}</p>
-                    </div>
-                  )}
-                  {viewQuery.data.sale && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Sale</p>
-                      <p className="font-medium">{viewQuery.data.sale.invoiceNo || viewQuery.data.sale.id}</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="font-semibold">{currencyFormatter.format(parseFloat(viewQuery.data.totalAmount))}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Paid Amount</p>
-                      <p className="font-semibold">{currencyFormatter.format(parseFloat(viewQuery.data.paidAmount))}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Balance Amount</p>
-                      <p className="font-semibold text-destructive">
-                        {currencyFormatter.format(parseFloat(viewQuery.data.balanceAmount))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Due Date</p>
-                      <p className="font-medium">
-                        {viewQuery.data.dueDate ? dateFormatter.format(new Date(viewQuery.data.dueDate)) : "—"}
-                      </p>
-                    </div>
-                  </div>
-                  {viewQuery.data.notes && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Notes</p>
-                      <p className="text-sm">{viewQuery.data.notes}</p>
-                    </div>
-                  )}
-                  {viewQuery.data.payments && viewQuery.data.payments.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2">Payment History</p>
-                      <div className="border rounded-lg divide-y">
-                        {viewQuery.data.payments.map((payment) => (
-                          <div key={payment.id} className="p-3 space-y-1">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">{currencyFormatter.format(parseFloat(payment.amount))}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {payment.paymentMethod.replace(/_/g, ' ')}
-                                  </Badge>
-                                </div>
-                                {payment.referenceNumber && (
-                                  <p className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</p>
-                                )}
-                                {payment.notes && (
-                                  <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
-                                )}
-                              </div>
-                              <div className="text-right text-xs text-muted-foreground">
-                                <p>{dateFormatter.format(new Date(payment.paymentDate))}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                    <div>
-                      <p>Created</p>
-                      <p>{dateFormatter.format(new Date(viewQuery.data.createdAt))}</p>
-                    </div>
-                    <div>
-                      <p>Updated</p>
-                      <p>{dateFormatter.format(new Date(viewQuery.data.updatedAt))}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-8 text-center text-sm text-muted-foreground">Failed to load credit</div>
-              )}
-            </div>
-            <DrawerFooterSection>
-              {viewQuery.data && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setViewOpen(false);
-                      handleEdit(viewQuery.data!);
-                    }}
-                  >
-                    <IconPencil className="mr-2 size-4" />
-                    Edit
-                  </Button>
-                  {viewQuery.data.status !== CreditStatusEnum.PAID &&
-                    parseFloat(viewQuery.data.balanceAmount) > 0 && (
-                      <Button
-                        onClick={() => {
-                          setViewOpen(false);
-                          handleRecordPayment(viewQuery.data!);
-                        }}
-                      >
-                        <IconCurrencyDollar className="mr-2 size-4" />
-                        Record Payment
-                      </Button>
-                    )}
-                </>
-              )}
-              <DrawerClose asChild>
-                <Button variant="outline">Close</Button>
-              </DrawerClose>
-            </DrawerFooterSection>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Credit Details</DialogTitle>
-            </DialogHeader>
-            {viewQuery.isLoading ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
-            ) : viewQuery.data ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Type</p>
-                    <Badge variant={viewQuery.data.type === CreditTypeEnum.PAYABLE ? "secondary" : "outline"}>
-                      {viewQuery.data.type}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <Badge variant={getStatusBadgeVariant(viewQuery.data.status)}>
-                      {viewQuery.data.status}
-                    </Badge>
-                  </div>
-                </div>
-                {viewQuery.data.supplier && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Supplier</p>
-                    <p className="font-medium">{viewQuery.data.supplier.name}</p>
-                  </div>
-                )}
-                {viewQuery.data.customer && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Customer</p>
-                    <p className="font-medium">{viewQuery.data.customer.name}</p>
-                  </div>
-                )}
-                {viewQuery.data.purchase && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Purchase</p>
-                    <p className="font-medium">{viewQuery.data.purchase.invoiceNo}</p>
-                  </div>
-                )}
-                {viewQuery.data.sale && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Sale</p>
-                    <p className="font-medium">{viewQuery.data.sale.invoiceNo || viewQuery.data.sale.id}</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Amount</p>
-                    <p className="font-semibold">{currencyFormatter.format(parseFloat(viewQuery.data.totalAmount))}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Paid Amount</p>
-                    <p className="font-semibold">{currencyFormatter.format(parseFloat(viewQuery.data.paidAmount))}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Balance Amount</p>
-                    <p className="font-semibold text-destructive">
-                      {currencyFormatter.format(parseFloat(viewQuery.data.balanceAmount))}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Due Date</p>
-                    <p className="font-medium">
-                      {viewQuery.data.dueDate ? dateFormatter.format(new Date(viewQuery.data.dueDate)) : "—"}
-                    </p>
-                  </div>
-                </div>
-                {viewQuery.data.notes && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Notes</p>
-                    <p className="text-sm">{viewQuery.data.notes}</p>
-                  </div>
-                )}
-                {viewQuery.data.payments && viewQuery.data.payments.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Payment History</p>
-                    <div className="border rounded-lg divide-y">
-                      {viewQuery.data.payments.map((payment) => (
-                        <div key={payment.id} className="p-3 space-y-1">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{currencyFormatter.format(parseFloat(payment.amount))}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {payment.paymentMethod.replace(/_/g, ' ')}
-                                </Badge>
-                              </div>
-                              {payment.referenceNumber && (
-                                <p className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</p>
-                              )}
-                              {payment.notes && (
-                                <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
-                              )}
-                            </div>
-                            <div className="text-right text-xs text-muted-foreground">
-                              <p>{dateFormatter.format(new Date(payment.paymentDate))}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                  <div>
-                    <p>Created</p>
-                    <p>{dateFormatter.format(new Date(viewQuery.data.createdAt))}</p>
-                  </div>
-                  <div>
-                    <p>Updated</p>
-                    <p>{dateFormatter.format(new Date(viewQuery.data.updatedAt))}</p>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setViewOpen(false);
-                      handleEdit(viewQuery.data!);
-                    }}
-                  >
-                    <IconPencil className="mr-2 size-4" />
-                    Edit
-                  </Button>
-                  {viewQuery.data.status !== CreditStatusEnum.PAID &&
-                    parseFloat(viewQuery.data.balanceAmount) > 0 && (
-                      <Button
-                        onClick={() => {
-                          setViewOpen(false);
-                          handleRecordPayment(viewQuery.data!);
-                        }}
-                      >
-                        <IconCurrencyDollar className="mr-2 size-4" />
-                        Record Payment
-                      </Button>
-                    )}
-                </div>
-              </div>
-            ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground">Failed to load credit</div>
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!confirmDeleteId} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>

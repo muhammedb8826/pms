@@ -260,8 +260,8 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
         <div>
           <label className="block text-sm font-medium">Manufacturer</label>
           <Select 
-            value={form.manufacturerId || ''} 
-            onValueChange={(v) => setField('manufacturerId', v || undefined)}
+            value={form.manufacturerId || '__none__'} 
+            onValueChange={(v) => setField('manufacturerId', v === '__none__' ? undefined : (v || undefined))}
             footerButton={
               <Button 
                 type="button" 
@@ -279,7 +279,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
           >
             <SelectTrigger><SelectValue placeholder="Select manufacturer (optional)" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="__none__">None</SelectItem>
               {allManufacturersArray.map((m) => (
                 <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
               ))}
@@ -321,15 +321,15 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
             <label className="block text-sm font-medium">Default UOM</label>
           </div>
           <Select 
-            value={form.defaultUomId || ''} 
-            onValueChange={(v) => setField('defaultUomId', v || undefined)}
+            value={form.defaultUomId || '__none__'} 
+            onValueChange={(v) => setField('defaultUomId', v === '__none__' ? undefined : (v || undefined))}
             disabled={!form.unitCategoryId}
           >
             <SelectTrigger>
               <SelectValue placeholder={form.unitCategoryId ? "Select default UOM (optional)" : "Select unit category first"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="__none__">None</SelectItem>
               {filteredUoms.map((u) => (
                 <SelectItem key={u.id} value={u.id}>{u.name}{u.abbreviation ? ` (${u.abbreviation})` : ''}</SelectItem>
               ))}
@@ -349,7 +349,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
               <SelectValue placeholder={form.unitCategoryId ? "Select purchase UOM (optional)" : "Select unit category first"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="__none__">None</SelectItem>
               {filteredUoms.map((u) => (
                 <SelectItem key={u.id} value={u.id}>{u.name}{u.abbreviation ? ` (${u.abbreviation})` : ''}</SelectItem>
               ))}

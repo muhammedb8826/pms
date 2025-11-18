@@ -320,12 +320,12 @@ export function CreditForm({
                 <label htmlFor="purchaseId" className="block text-sm font-medium">
                   Purchase (Optional)
                 </label>
-                <Select value={purchaseId} onValueChange={(v) => setPurchaseId(v || '')}>
+                <Select value={purchaseId || '__none__'} onValueChange={(v) => setPurchaseId(v === '__none__' ? '' : (v || ''))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select purchase" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {purchases.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.invoiceNo || p.id}
@@ -341,12 +341,12 @@ export function CreditForm({
                 <label htmlFor="saleId" className="block text-sm font-medium">
                   Sale (Optional)
                 </label>
-                <Select value={saleId} onValueChange={(v) => setSaleId(v || '')}>
+                <Select value={saleId || '__none__'} onValueChange={(v) => setSaleId(v === '__none__' ? '' : (v || ''))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select sale" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {sales.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.id}

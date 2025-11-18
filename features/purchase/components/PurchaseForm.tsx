@@ -514,15 +514,15 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={item.uomId || ''}
-                        onValueChange={(v) => updateItem(index, 'uomId', v || undefined)}
+                        value={item.uomId || '__none__'}
+                        onValueChange={(v) => updateItem(index, 'uomId', v === '__none__' ? undefined : (v || undefined))}
                         disabled={isCompleted || isCancelled}
                       >
                         <SelectTrigger className="w-full min-w-[120px]">
                           <SelectValue placeholder="Optional" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="__none__">None</SelectItem>
                           {allUoms.map((u) => (
                             <SelectItem key={u.id} value={u.id}>
                               {u.name}{u.abbreviation ? ` (${u.abbreviation})` : ''}

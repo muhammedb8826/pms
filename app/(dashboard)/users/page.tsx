@@ -310,12 +310,12 @@ export default function UsersPage() {
             value={search}
             onChange={handleSearchChange}
           />
-          <Select value={roleFilter} onValueChange={handleRoleChange}>
+          <Select value={roleFilter || "__all__"} onValueChange={(value) => handleRoleChange(value === "__all__" ? "" : value)}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="All roles" />
             </SelectTrigger>
             <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="">All roles</SelectItem>
+              <SelectItem value="__all__">All roles</SelectItem>
               {USER_ROLES.map((role) => (
                 <SelectItem key={role} value={role}>
                   {roleLabel(role)}
@@ -323,12 +323,12 @@ export default function UsersPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={genderFilter} onValueChange={handleGenderChange}>
+          <Select value={genderFilter || "__all__"} onValueChange={(value) => handleGenderChange(value === "__all__" ? "" : value)}>
             <SelectTrigger className="w-full sm:w-36">
               <SelectValue placeholder="All genders" />
             </SelectTrigger>
             <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="">All genders</SelectItem>
+              <SelectItem value="__all__">All genders</SelectItem>
               {USER_GENDERS.map((gender) => (
                 <SelectItem key={gender} value={gender}>
                   {genderLabel(gender)}

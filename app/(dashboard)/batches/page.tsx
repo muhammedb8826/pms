@@ -340,9 +340,9 @@ export default function BatchesPage() {
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Select
-            value={productId}
+            value={productId || "__all__"}
             onValueChange={(value) => {
-              setProductId(value ?? "");
+              setProductId(value === "__all__" ? "" : (value ?? ""));
               setPageIndex(0);
             }}
           >
@@ -350,7 +350,7 @@ export default function BatchesPage() {
               <SelectValue placeholder="All products" />
             </SelectTrigger>
             <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="">All products</SelectItem>
+              <SelectItem value="__all__">All products</SelectItem>
               {products.map((product) => (
                 <SelectItem key={product.id} value={product.id}>
                   {product.name}
@@ -360,9 +360,9 @@ export default function BatchesPage() {
           </Select>
 
           <Select
-            value={supplierId}
+            value={supplierId || "__all__"}
             onValueChange={(value) => {
-              setSupplierId(value ?? "");
+              setSupplierId(value === "__all__" ? "" : (value ?? ""));
               setPageIndex(0);
             }}
           >
@@ -370,7 +370,7 @@ export default function BatchesPage() {
               <SelectValue placeholder="All suppliers" />
             </SelectTrigger>
             <SelectContent position="popper" className="z-[60]">
-              <SelectItem value="">All suppliers</SelectItem>
+              <SelectItem value="__all__">All suppliers</SelectItem>
               {suppliers.map((supplier) => (
                 <SelectItem key={supplier.id} value={supplier.id}>
                   {supplier.name}

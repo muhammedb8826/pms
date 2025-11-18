@@ -300,9 +300,9 @@ export default function UnitOfMeasuresPage() {
         <div className="flex items-start justify-between gap-2 sm:items-center">
           <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select 
-              value={selectedCategoryId} 
+              value={selectedCategoryId || '__all__'} 
               onValueChange={(v: string | undefined) => {
-                setSelectedCategoryId(v || '');
+                setSelectedCategoryId(v === '__all__' ? '' : (v || ''));
                 setPage(1);
               }}
             >
@@ -310,7 +310,7 @@ export default function UnitOfMeasuresPage() {
                 <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All categories</SelectItem>
+                <SelectItem value="__all__">All categories</SelectItem>
                 {allUnitCategories.map((uc) => (
                   <SelectItem key={uc.id} value={uc.id}>{uc.name}</SelectItem>
                 ))}
