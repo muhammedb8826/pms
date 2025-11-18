@@ -41,8 +41,8 @@ export function BatchForm({
   onSubmittingChange?: (loading: boolean) => void;
 }) {
   const [form, setForm] = useState<CreateBatchDto>({
-    productId: batch?.product.id ?? '',
-    supplierId: batch?.supplier.id ?? '',
+    productId: batch?.product?.id ?? '',
+    supplierId: batch?.supplier?.id ?? '',
     batchNumber: batch?.batchNumber ?? '',
     expiryDate: batch?.expiryDate ?? new Date().toISOString().split('T')[0],
     quantity: batch?.quantity ?? 0,
@@ -53,6 +53,21 @@ export function BatchForm({
 
   const productsQuery = useAllProducts();
   const suppliersQuery = useAllSuppliers();
+
+  // Update form when batch data loads
+  useEffect(() => {
+    if (batch) {
+      setForm({
+        productId: batch.product?.id ?? '',
+        supplierId: batch.supplier?.id ?? '',
+        batchNumber: batch.batchNumber ?? '',
+        expiryDate: batch.expiryDate ?? new Date().toISOString().split('T')[0],
+        quantity: batch.quantity ?? 0,
+        purchasePrice: batch.purchasePrice ?? 0,
+        sellingPrice: batch.sellingPrice ?? 0,
+      });
+    }
+  }, [batch]);
 
   // Unwrap arrays from possible wrapped responses
   const products = useMemo(() => {

@@ -3,6 +3,7 @@
 import {
   useGetManufacturersQuery,
   useGetAllManufacturersQuery,
+  useGetManufacturerQuery,
   useCreateManufacturerMutation,
   useUpdateManufacturerMutation,
   useDeleteManufacturerMutation,
@@ -57,6 +58,14 @@ export function useManufacturers(page = 1, limit = 10, options?: { search?: stri
 
 export function useAllManufacturers(options?: { search?: string; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }) {
   return useGetAllManufacturersQuery(options || undefined);
+}
+
+export function useManufacturer(id?: string) {
+  const query = useGetManufacturerQuery(id || '', { skip: !id });
+  type WrappedResponse<T> = { success?: boolean; data?: T };
+  const raw = query.data as Manufacturer | WrappedResponse<Manufacturer> | undefined;
+  const data = raw && typeof raw === 'object' && 'data' in raw ? (raw as WrappedResponse<Manufacturer>).data : (raw as Manufacturer | undefined);
+  return { ...query, data } as typeof query & { data: Manufacturer | undefined };
 }
 
 function unwrapManufacturer(response: unknown): Manufacturer {
@@ -128,4 +137,3 @@ export function useDeleteManufacturer() {
     ...result,
   };
 }
-
