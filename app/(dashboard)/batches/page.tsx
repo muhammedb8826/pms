@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/form-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -470,7 +470,7 @@ export default function BatchesPage() {
         />
       </div>
 
-      <Dialog
+      <FormDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
@@ -478,25 +478,22 @@ export default function BatchesPage() {
             setEditingId(null);
           }
         }}
+        title={editingId ? "Edit Batch" : "Add Batch"}
+        size="2xl"
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Batch" : "Add Batch"}</DialogTitle>
-          </DialogHeader>
-          <BatchForm
-            batch={editingId ? batches.find((batch) => batch.id === editingId) ?? null : null}
-            onSuccess={() => {
-              setDialogOpen(false);
-              setEditingId(null);
-              refetch();
-            }}
-            onCancel={() => {
-              setDialogOpen(false);
-              setEditingId(null);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+        <BatchForm
+          batch={editingId ? batches.find((batch) => batch.id === editingId) ?? null : null}
+          onSuccess={() => {
+            setDialogOpen(false);
+            setEditingId(null);
+            refetch();
+          }}
+          onCancel={() => {
+            setDialogOpen(false);
+            setEditingId(null);
+          }}
+        />
+      </FormDialog>
     </div>
   );
 }

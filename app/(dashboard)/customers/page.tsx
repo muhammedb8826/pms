@@ -7,7 +7,7 @@ import { useCustomers, useDeleteCustomer } from '@/features/customer/hooks/useCu
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog } from '@/components/form-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -320,7 +320,7 @@ export default function CustomersPage() {
         />
       </div>
 
-      <Dialog
+      <FormDialog
         open={dialogOpen}
         onOpenChange={(o) => {
           setDialogOpen(o);
@@ -330,29 +330,11 @@ export default function CustomersPage() {
             setFormSubmitting(false);
           }
         }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit Customer' : 'Add Customer'}</DialogTitle>
-          </DialogHeader>
-          <CustomerForm
-            customer={editingCustomer}
-            onSuccess={() => {
-              setDialogOpen(false);
-              setEditingId(null);
-              refetch();
-            }}
-            onCancel={() => {
-              setDialogOpen(false);
-              setEditingId(null);
-            }}
-            onErrorChange={setFormError}
-            onSubmittingChange={setFormSubmitting}
-            formId="customer-form"
-            hideActions
-          />
-          {formError && <div className="text-red-600 text-sm">{formError}</div>}
-          <DialogFooter>
+        title={editingId ? 'Edit Customer' : 'Add Customer'}
+        size="2xl"
+        error={formError}
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -367,9 +349,26 @@ export default function CustomersPage() {
             <Button type="submit" form="customer-form" disabled={formSubmitting}>
               {formSubmitting ? 'Saving…' : editingId ? 'Update' : 'Create'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <CustomerForm
+          customer={editingCustomer}
+          onSuccess={() => {
+            setDialogOpen(false);
+            setEditingId(null);
+            refetch();
+          }}
+          onCancel={() => {
+            setDialogOpen(false);
+            setEditingId(null);
+          }}
+          onErrorChange={setFormError}
+          onSubmittingChange={setFormSubmitting}
+          formId="customer-form"
+          hideActions
+        />
+      </FormDialog>
 
       <AlertDialog
         open={Boolean(confirmDeleteId)}

@@ -24,7 +24,7 @@ import {
   AlertDialogHeader as AlertHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/form-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { UnifiedDataTable } from "@/components/unified-data-table";
+import { DashboardDataTable } from "@/components/dashboard-data-table";
 import { useCredits, useDeleteCredit } from "@/features/credit/hooks/useCredits";
 import type { Credit, CreditStatus } from "@/features/credit/types";
 import { CreditType as CreditTypeEnum, CreditStatus as CreditStatusEnum } from "@/features/credit/types";
@@ -87,14 +87,13 @@ export default function CreditsPage() {
     sortOrder,
   });
 
-  // Calculate tab badges
+  // Calculate tab badges - these would ideally come from separate queries
   const payableCount = useMemo(() => {
-    // This would ideally come from a separate query, but for now we'll filter client-side
-    return credits.filter(c => c.type === CreditTypeEnum.PAYABLE).length;
+    return credits.filter((c) => c.type === CreditTypeEnum.PAYABLE).length;
   }, [credits]);
 
   const receivableCount = useMemo(() => {
-    return credits.filter(c => c.type === CreditTypeEnum.RECEIVABLE).length;
+    return credits.filter((c) => c.type === CreditTypeEnum.RECEIVABLE).length;
   }, [credits]);
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize) || 1), [total, pageSize]);
@@ -113,7 +112,6 @@ export default function CreditsPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentCredit, setPaymentCredit] = useState<Credit | null>(null);
 
-
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const deleteMutation = useDeleteCredit();
 
@@ -131,7 +129,6 @@ export default function CreditsPage() {
     },
     [deleteMutation, refetch],
   );
-
 
   const handleEdit = useCallback((credit: Credit) => {
     setEditing(credit);
@@ -170,17 +167,153 @@ export default function CreditsPage() {
     refetch();
   }, [handlePaymentDialogClose, refetch]);
 
-  const handlePageChange = useCallback(
-    (nextIndex: number) => {
-      const nextPage = Math.min(Math.max(nextIndex + 1, 1), pageCount);
-      setPage(nextPage);
-    },
-    [pageCount],
-  );
-
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setPage(1);
+  const renderDetails = useCallback((credit: Credit) => {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 text-sm">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground">Type</div>
+              <div className="mt-1">
+                <Badge variant={credit.type === CreditTypeEnum.PAYABLE ? "secondary" : "outline"}>
+                  {credit.type}
+                </Badge>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Status</div>
+              <div className="mt-1">
+                <Badge variant={getStatusBadgeVariant(credit.status)}>{credit.status}</Badge>
+              </div>
+            </div>
+          </div>
+          {credit.supplier && (
+            <div>
+              <div className="text-xs text-muted-foreground">Supplier</div>
+              <div className="font-medium text-foreground">{credit.supplier.name}</div>
+            </div>
+          )}
+          {credit.customer && (
+            <div>
+              <div className="text-xs text-muted-foreground">Customer</div>
+              <div className="font-medium text-foreground">{credit.customer.name}</div>
+            </div>
+          )}
+          {credit.purchase && (
+            <div>
+              <div className="text-xs text-muted-foreground">Purchase</div>
+              <div className="font-medium text-foreground">{credit.purchase.invoiceNo}</div>
+            </div>
+          )}
+          {credit.sale && (
+            <div>
+              <div className="text-xs text-muted-foreground">Sale</div>
+              <div className="font-medium text-foreground">{credit.sale.invoiceNo || credit.sale.id}</div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground">Total Amount</div>
+              <div className="font-semibold text-foreground">
+                {currencyFormatter.format(parseFloat(credit.totalAmount))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Paid Amount</div>
+              <div className="font-semibold text-foreground">
+                {currencyFormatter.format(parseFloat(credit.paidAmount))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Balance Amount</div>
+              <div className="font-semibold text-destructive">
+                {currencyFormatter.format(parseFloat(credit.balanceAmount))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Due Date</div>
+              <div className="font-medium text-foreground">
+                {credit.dueDate ? dateFormatter.format(new Date(credit.dueDate)) : "—"}
+              </div>
+            </div>
+          </div>
+          {credit.notes && (
+            <div>
+              <div className="text-xs text-muted-foreground">Notes</div>
+              <div className="text-foreground">{credit.notes}</div>
+            </div>
+          )}
+          {credit.payments && credit.payments.length > 0 && (
+            <div>
+              <div className="text-xs text-muted-foreground mb-2">Payment Methods Used</div>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(
+                  new Set(credit.payments.map((p) => p.paymentMethod))
+                ).map((method) => {
+                  const methodPayments = credit.payments!.filter(
+                    (p) => p.paymentMethod === method
+                  );
+                  const methodTotal = methodPayments.reduce(
+                    (sum, p) => sum + parseFloat(p.amount),
+                    0
+                  );
+                  return (
+                    <Badge key={method} variant="outline" className="text-xs">
+                      {method.replace(/_/g, " ")}: {currencyFormatter.format(methodTotal)} ({methodPayments.length})
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
+            <div>
+              <div>Created</div>
+              <div>{dateFormatter.format(new Date(credit.createdAt))}</div>
+            </div>
+            <div>
+              <div>Updated</div>
+              <div>{dateFormatter.format(new Date(credit.updatedAt))}</div>
+            </div>
+          </div>
+        </div>
+        {credit.payments && credit.payments.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Payment History ({credit.payments.length})</span>
+              <Badge variant="outline">{credit.payments.length}</Badge>
+            </div>
+            <div className="border rounded-lg divide-y">
+              {credit.payments.map((payment) => (
+                <div key={payment.id} className="p-3 space-y-1">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                          {currencyFormatter.format(parseFloat(payment.amount))}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {payment.paymentMethod.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+                      {payment.referenceNumber && (
+                        <p className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</p>
+                      )}
+                      {payment.notes && (
+                        <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
+                      )}
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      <p>{dateFormatter.format(new Date(payment.paymentDate))}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }, []);
 
   const columns = useMemo<ColumnDef<Credit>[]>(() => {
@@ -203,11 +336,7 @@ export default function CreditsPage() {
         cell: ({ row }) => {
           const credit = row.original;
           const name = credit.supplier?.name || credit.customer?.name || "—";
-          return (
-            <div className="text-left text-sm font-semibold">
-              {name}
-            </div>
-          );
+          return <span className="text-sm font-semibold">{name}</span>;
         },
       },
       {
@@ -242,11 +371,7 @@ export default function CreditsPage() {
         header: "Status",
         cell: ({ row }) => {
           const status = row.original.status;
-          return (
-            <Badge variant={getStatusBadgeVariant(status)}>
-              {status}
-            </Badge>
-          );
+          return <Badge variant={getStatusBadgeVariant(status)}>{status}</Badge>;
         },
       },
       {
@@ -277,6 +402,9 @@ export default function CreditsPage() {
                     size="icon"
                     className="text-muted-foreground data-[state=open]:bg-muted"
                     aria-label="Open credit actions"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
@@ -285,23 +413,32 @@ export default function CreditsPage() {
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
                       handleEdit(credit);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                     }}
                   >
                     <IconPencil className="mr-2 size-4" />
                     Edit
                   </DropdownMenuItem>
-                  {canPay && (
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault();
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (canPay) {
                         handleRecordPayment(credit);
-                      }}
-                    >
-                      <IconCurrencyDollar className="mr-2 size-4" />
-                      Record Payment
-                    </DropdownMenuItem>
-                  )}
+                      }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    disabled={!canPay}
+                  >
+                    <IconCurrencyDollar className="mr-2 size-4" />
+                    Record Payment
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
@@ -322,229 +459,207 @@ export default function CreditsPage() {
     ];
   }, [handleEdit, handleRecordPayment]);
 
+  if (error) {
+    return <div className="p-4 text-sm text-destructive">Error: {error}</div>;
+  }
+
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Credits</h1>
-        <p className="text-sm text-muted-foreground">Manage payable and receivable credits</p>
-      </div>
-
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex-1">
-          <Input
-            placeholder="Search by supplier, customer, or notes..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="max-w-sm"
-          />
-        </div>
-        <Select
-          value={statusFilter || "__all__"}
-          onValueChange={(value) => {
-            setStatusFilter(value === "__all__" ? "" : (value as CreditStatus));
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent position="popper" className="z-[60]">
-            <SelectItem value="__all__">All Statuses</SelectItem>
-            <SelectItem value={CreditStatusEnum.PENDING}>Pending</SelectItem>
-            <SelectItem value={CreditStatusEnum.PARTIAL}>Partial</SelectItem>
-            <SelectItem value={CreditStatusEnum.PAID}>Paid</SelectItem>
-            <SelectItem value={CreditStatusEnum.OVERDUE}>Overdue</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <UnifiedDataTable
-        data={credits}
-        columns={columns}
-        loading={loading}
-        emptyMessage="No credits found"
-        tabs={[
-          { value: "all", label: "All", badge: total },
-          { value: "payable", label: "Payable", badge: payableCount },
-          { value: "receivable", label: "Receivable", badge: receivableCount },
-        ]}
-        defaultTab={activeTab}
-        onTabChange={(value: string) => {
-          setActiveTab(value as "all" | "payable" | "receivable");
-          setPage(1);
-        }}
-        pageIndex={page - 1}
-        pageSize={pageSize}
-        pageCount={pageCount}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-        renderDetails={(credit: Credit) => {
-          // Use the credit data directly, or fetch if needed
-          const creditData = credit;
-          return (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Type</p>
-                  <Badge variant={creditData.type === CreditTypeEnum.PAYABLE ? "secondary" : "outline"}>
-                    {creditData.type}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge variant={getStatusBadgeVariant(creditData.status)}>
-                    {creditData.status}
-                  </Badge>
-                </div>
-              </div>
-              {creditData.supplier && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Supplier</p>
-                  <p className="font-medium">{creditData.supplier.name}</p>
-                </div>
-              )}
-              {creditData.customer && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Customer</p>
-                  <p className="font-medium">{creditData.customer.name}</p>
-                </div>
-              )}
-              {creditData.purchase && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Purchase</p>
-                  <p className="font-medium">{creditData.purchase.invoiceNo}</p>
-                </div>
-              )}
-              {creditData.sale && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Sale</p>
-                  <p className="font-medium">{creditData.sale.invoiceNo || creditData.sale.id}</p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="font-semibold">{currencyFormatter.format(parseFloat(creditData.totalAmount))}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Paid Amount</p>
-                  <p className="font-semibold">{currencyFormatter.format(parseFloat(creditData.paidAmount))}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Balance Amount</p>
-                  <p className="font-semibold text-destructive">
-                    {currencyFormatter.format(parseFloat(creditData.balanceAmount))}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Due Date</p>
-                  <p className="font-medium">
-                    {creditData.dueDate ? dateFormatter.format(new Date(creditData.dueDate)) : "—"}
-                  </p>
-                </div>
-              </div>
-              {creditData.notes && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Notes</p>
-                  <p className="text-sm">{creditData.notes}</p>
-                </div>
-              )}
-              {creditData.payments && creditData.payments.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-2">Payment History</p>
-                  <div className="border rounded-lg divide-y">
-                    {creditData.payments.map((payment) => (
-                      <div key={payment.id} className="p-3 space-y-1">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{currencyFormatter.format(parseFloat(payment.amount))}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {payment.paymentMethod.replace(/_/g, ' ')}
-                              </Badge>
-                            </div>
-                            {payment.referenceNumber && (
-                              <p className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</p>
-                            )}
-                            {payment.notes && (
-                              <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
-                            )}
-                          </div>
-                          <div className="text-right text-xs text-muted-foreground">
-                            <p>{dateFormatter.format(new Date(payment.paymentDate))}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                <div>
-                  <p>Created</p>
-                  <p>{dateFormatter.format(new Date(creditData.createdAt))}</p>
-                </div>
-                <div>
-                  <p>Updated</p>
-                  <p>{dateFormatter.format(new Date(creditData.updatedAt))}</p>
-                </div>
-              </div>
-            </div>
-          );
-        }}
-        detailsTitle={() => `Credit Details`}
-        detailsDescription={(credit: Credit) => {
-          const name = credit.supplier?.name || credit.customer?.name || "Credit";
-          return `${name} - ${credit.type}`;
-        }}
-        headerActions={
+    <div className="flex flex-col gap-4 p-4 overflow-x-hidden">
+      <div className="flex flex-col gap-4 rounded-xl border bg-background p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-2 sm:items-center">
+          <div>
+            <h1 className="text-xl font-semibold">Credits</h1>
+            <p className="text-sm text-muted-foreground">Manage payable and receivable credits</p>
+            <p className="mt-1 text-xs text-muted-foreground">Total credits: {total}</p>
+          </div>
           <Button onClick={handleCreate}>
             <IconFilePlus className="mr-2 size-4" />
             Create Credit
           </Button>
-        }
-      />
+        </div>
+
+        <DashboardDataTable
+          columns={columns}
+          data={credits}
+          loading={loading}
+          pageIndex={page - 1}
+          pageSize={pageSize}
+          pageCount={pageCount}
+          onPageChange={(index: number) => {
+            const nextPage = Math.min(Math.max(index + 1, 1), pageCount);
+            setPage(nextPage);
+          }}
+          onPageSizeChange={(size: number) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          emptyMessage="No credits found"
+          enableColumnVisibility={true}
+          tabs={[
+            { value: "all", label: "All", badge: total },
+            { value: "payable", label: "Payable", badge: payableCount },
+            { value: "receivable", label: "Receivable", badge: receivableCount },
+          ]}
+          defaultTab={activeTab}
+          onTabChange={(value: string) => {
+            setActiveTab(value as "all" | "payable" | "receivable");
+            setPage(1);
+          }}
+          renderDetails={renderDetails}
+          detailsTitle={() => "Credit Details"}
+          detailsDescription={(credit: Credit) => {
+            const name = credit.supplier?.name || credit.customer?.name || "Credit";
+            return `${name} - ${credit.type}`;
+          }}
+          renderDetailsFooter={(credit, onClose) => {
+            const canPay = credit.status !== CreditStatusEnum.PAID && parseFloat(credit.balanceAmount) > 0;
+            return (
+              <div className="flex flex-col gap-2 w-full">
+                <Button
+                  variant="outline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClose();
+                    setTimeout(() => {
+                      handleEdit(credit);
+                    }, 0);
+                  }}
+                  className="w-full"
+                >
+                  <IconPencil className="mr-2 size-4" />
+                  Edit Credit
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClose();
+                    setTimeout(() => {
+                      handleRecordPayment(credit);
+                    }, 0);
+                  }}
+                  className="w-full"
+                  disabled={!canPay}
+                >
+                  <IconCurrencyDollar className="mr-2 size-4" />
+                  Record Payment
+                </Button>
+              </div>
+            );
+          }}
+          headerFilters={
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <Input
+                placeholder="Search by supplier, customer, or notes..."
+                className="w-full min-w-0 sm:w-56"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+              <Select
+                value={statusFilter || "__all__"}
+                onValueChange={(value) => {
+                  setStatusFilter(value === "__all__" ? "" : (value as CreditStatus));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Statuses</SelectItem>
+                  <SelectItem value={CreditStatusEnum.PENDING}>Pending</SelectItem>
+                  <SelectItem value={CreditStatusEnum.PARTIAL}>Partial</SelectItem>
+                  <SelectItem value={CreditStatusEnum.PAID}>Paid</SelectItem>
+                  <SelectItem value={CreditStatusEnum.OVERDUE}>Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={sortBy}
+                onValueChange={(value) => {
+                  setSortBy(value || "createdAt");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Created</SelectItem>
+                  <SelectItem value="dueDate">Due Date</SelectItem>
+                  <SelectItem value="totalAmount">Total Amount</SelectItem>
+                  <SelectItem value="balanceAmount">Balance</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={sortOrder}
+                onValueChange={(value) => {
+                  setSortOrder((value || "DESC") as "ASC" | "DESC");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-32">
+                  <SelectValue placeholder="Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ASC">ASC</SelectItem>
+                  <SelectItem value="DESC">DESC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          }
+        />
+      </div>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Credit" : "Create Credit"}</DialogTitle>
-          </DialogHeader>
-          <CreditForm
-            credit={editing}
-            onSuccess={handleFormSuccess}
-            onCancel={handleDialogClose}
+      <FormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={editing ? "Edit Credit" : "Create Credit"}
+        size="2xl"
+        error={formError}
+      >
+        <CreditForm
+          credit={editing}
+          onSuccess={handleFormSuccess}
+          onCancel={handleDialogClose}
+          onErrorChange={setFormError}
+          onSubmittingChange={setFormSubmitting}
+        />
+      </FormDialog>
+
+      {/* Payment Dialog */}
+      <FormDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        title="Record Payment"
+        size="md"
+        error={formError}
+      >
+        {paymentCredit && (
+          <PaymentForm
+            credit={paymentCredit}
+            onSuccess={handlePaymentSuccess}
+            onCancel={handlePaymentDialogClose}
             onErrorChange={setFormError}
             onSubmittingChange={setFormSubmitting}
           />
-        </DialogContent>
-      </Dialog>
-
-      {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
-          </DialogHeader>
-          {paymentCredit && (
-            <PaymentForm
-              credit={paymentCredit}
-              onSuccess={handlePaymentSuccess}
-              onCancel={handlePaymentDialogClose}
-              onErrorChange={setFormError}
-              onSubmittingChange={setFormSubmitting}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
+        )}
+      </FormDialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!confirmDeleteId} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
+      <AlertDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDeleteId(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertHeader>
             <AlertDialogTitle>Delete Credit</AlertDialogTitle>
@@ -553,8 +668,13 @@ export default function CreditsPage() {
           <AlertFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+              onClick={() => {
+                if (confirmDeleteId) {
+                  void handleDelete(confirmDeleteId);
+                }
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
             >
               Delete
             </AlertDialogAction>

@@ -7,7 +7,7 @@ import { Supplier } from '@/features/supplier/types';
 import { useSuppliers, useDeleteSupplier } from '@/features/supplier/hooks/useSuppliers';
 import { SupplierForm } from '@/features/supplier/components/SupplierForm';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog } from '@/components/form-dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -324,7 +324,7 @@ export default function Page() {
         />
       </div>
 
-      <Dialog
+      <FormDialog
         open={dialogOpen}
         onOpenChange={(o) => {
           setDialogOpen(o);
@@ -334,25 +334,11 @@ export default function Page() {
             setEditing(null);
           }
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Supplier' : 'Create Supplier'}</DialogTitle>
-          </DialogHeader>
-          <SupplierForm
-            supplier={editing}
-            onSuccess={onFormSuccess}
-            onCancel={() => {
-              setDialogOpen(false);
-              setEditing(null);
-            }}
-            onErrorChange={setFormError}
-            onSubmittingChange={setFormSubmitting}
-            formId="supplier-form"
-            hideActions
-          />
-          {formError && <div className="text-red-600 text-sm">{formError}</div>}
-          <DialogFooter>
+        title={editing ? 'Edit Supplier' : 'Create Supplier'}
+        size="2xl"
+        error={formError}
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -367,9 +353,22 @@ export default function Page() {
             <Button type="submit" form="supplier-form" disabled={formSubmitting}>
               {formSubmitting ? 'Saving…' : editing ? 'Update' : 'Create'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <SupplierForm
+          supplier={editing}
+          onSuccess={onFormSuccess}
+          onCancel={() => {
+            setDialogOpen(false);
+            setEditing(null);
+          }}
+          onErrorChange={setFormError}
+          onSubmittingChange={setFormSubmitting}
+          formId="supplier-form"
+          hideActions
+        />
+      </FormDialog>
 
       <AlertDialog
         open={Boolean(confirmDeleteId)}

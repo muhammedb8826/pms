@@ -23,7 +23,7 @@ import {
   AlertDialogHeader as AlertHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/form-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -346,7 +346,7 @@ export default function CategoriesPage() {
         />
       </div>
 
-      <Dialog
+      <FormDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
@@ -356,48 +356,45 @@ export default function CategoriesPage() {
             setFormSubmitting(false);
           }
         }}
+        title={editing ? "Edit Category" : "Create Category"}
+        size="2xl"
+        error={formError}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDialogOpen(false);
+                setEditing(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form="category-form" disabled={formSubmitting}>
+              {formSubmitting ? "Saving…" : editing ? "Update" : "Create"}
+            </Button>
+          </>
+        }
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Category" : "Create Category"}</DialogTitle>
-          </DialogHeader>
-          <CategoryForm
-            category={editing}
-            onSuccess={() => {
-              setDialogOpen(false);
-              setEditing(null);
-              refetch();
-              handleApiSuccess(editing ? "Category updated successfully" : "Category created successfully");
-            }}
-            onCancel={() => {
-              setDialogOpen(false);
-              setEditing(null);
-            }}
-            onErrorChange={setFormError}
-            onSubmittingChange={setFormSubmitting}
-            formId="category-form"
-            hideActions
-          />
-          <div className="mt-4 flex items-center justify-between">
-            {formError ? <span className="text-xs text-destructive">{formError}</span> : <span />}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDialogOpen(false);
-                  setEditing(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" form="category-form" disabled={formSubmitting}>
-                {formSubmitting ? "Saving…" : editing ? "Update" : "Create"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        <CategoryForm
+          category={editing}
+          onSuccess={() => {
+            setDialogOpen(false);
+            setEditing(null);
+            refetch();
+            handleApiSuccess(editing ? "Category updated successfully" : "Category created successfully");
+          }}
+          onCancel={() => {
+            setDialogOpen(false);
+            setEditing(null);
+          }}
+          onErrorChange={setFormError}
+          onSubmittingChange={setFormSubmitting}
+          formId="category-form"
+          hideActions
+        />
+      </FormDialog>
 
       <AlertDialog
         open={Boolean(confirmDeleteId)}

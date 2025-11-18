@@ -23,7 +23,7 @@ import {
   AlertDialogHeader as AlertHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/form-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -337,7 +337,7 @@ export default function ManufacturersPage() {
         />
       </div>
 
-      <Dialog
+      <FormDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
@@ -347,12 +347,29 @@ export default function ManufacturersPage() {
             setFormSubmitting(false);
           }
         }}
+        title="Create Manufacturer"
+        size="lg"
+        error={formError}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDialogOpen(false);
+                setFormState({ name: "", contact: "", address: "" });
+              }}
+              disabled={formSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form="manufacturer-form" disabled={formSubmitting}>
+              {formSubmitting ? "Saving…" : "Create"}
+            </Button>
+          </>
+        }
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create Manufacturer</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="manufacturer-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Name *</label>
               <Input
@@ -392,25 +409,8 @@ export default function ManufacturersPage() {
                 disabled={formSubmitting}
               />
             </div>
-            <div className="flex items-center justify-between">
-              {formError ? <span className="text-xs text-destructive">{formError}</span> : <span />}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                  disabled={formSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={formSubmitting}>
-                  {formSubmitting ? "Saving…" : "Create"}
-                </Button>
-              </div>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+        </form>
+      </FormDialog>
 
       <AlertDialog
         open={Boolean(confirmDeleteId)}
