@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -23,16 +23,40 @@ import { Input } from "@/components/ui/input"
 import { useAuth } from "@/features/auth/contexts/AuthContext"
 import { handleApiError } from '@/lib/utils/api-error-handler';
 
+const REDIRECT_KEY = 'login_redirect';
+
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { signin } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Get redirect destination from URL params or localStorage
+  const getRedirectPath = () => {
+    // Check URL search params first (e.g., /login?redirect=/purchases)
+    const redirectParam = searchParams.get('redirect');
+    if (redirectParam) {
+      return redirectParam;
+    }
+    
+    // Check localStorage for stored redirect
+    if (typeof window !== 'undefined') {
+      const storedRedirect = localStorage.getItem(REDIRECT_KEY);
+      if (storedRedirect) {
+        localStorage.removeItem(REDIRECT_KEY);
+        return storedRedirect;
+      }
+    }
+    
+    // Default to dashboard
+    return '/dashboard';
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -40,7 +64,9 @@ export function LoginForm({
     setErrorMessage(null)
     try {
       await signin(email, password)
-      router.push("/dashboard")
+      // Get redirect path and navigate
+      const redirectPath = getRedirectPath();
+      router.push(redirectPath);
     } catch (err: unknown) {
       const msg = handleApiError(err, {
         defaultMessage: "Login failed",

@@ -69,31 +69,46 @@ const baseQuery: BaseQueryFn<
           result = await baseQueryFn(args, api, extraOptions);
         } else {
           // Refresh failed - clear tokens and redirect to login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('tokens');
-          localStorage.removeItem('user');
           if (typeof window !== 'undefined') {
+            // Store current path for redirect after login
+            const currentPath = window.location.pathname + window.location.search;
+            if (!currentPath.startsWith('/login')) {
+              localStorage.setItem('login_redirect', currentPath);
+            }
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('tokens');
+            localStorage.removeItem('user');
             window.location.href = '/login';
           }
         }
       } catch {
         // Refresh failed - clear tokens
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('tokens');
-        localStorage.removeItem('user');
         if (typeof window !== 'undefined') {
+          // Store current path for redirect after login
+          const currentPath = window.location.pathname + window.location.search;
+          if (!currentPath.startsWith('/login')) {
+            localStorage.setItem('login_redirect', currentPath);
+          }
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('tokens');
+          localStorage.removeItem('user');
           window.location.href = '/login';
         }
       }
     } else if (!isAuthEndpoint) {
       // No refresh token available - clear storage and redirect
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('tokens');
-      localStorage.removeItem('user');
       if (typeof window !== 'undefined') {
+        // Store current path for redirect after login
+        const currentPath = window.location.pathname + window.location.search;
+        if (!currentPath.startsWith('/login')) {
+          localStorage.setItem('login_redirect', currentPath);
+        }
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('tokens');
+        localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }

@@ -21,6 +21,14 @@ export default function ProtectedRoute({ children, requiredRoles }: ProtectedRou
 
   React.useEffect(() => {
     if (!isLoading && !user) {
+      // Store the current path for redirect after login
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname + window.location.search;
+        // Only store if it's not already the login page
+        if (!currentPath.startsWith('/login')) {
+          localStorage.setItem('login_redirect', currentPath);
+        }
+      }
       router.push('/login');
     }
     if (user && requiredRoles && requiredRoles.length > 0) {
