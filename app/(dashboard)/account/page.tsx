@@ -8,80 +8,71 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useUpdateAccountMutation, useChangePasswordMutation } from "@/features/auth/api/accountApi";
+import { useUpdateProfileMutation, useChangePasswordMutation, useUploadAvatarMutation } from "@/features/auth/api/accountApi";
 import type { User as AuthUser } from "@/features/auth/types";
 import { ImageUpload } from "@/components/ui/image-upload";
 
-const genderOptions = [
-  { label: "Male", value: "MALE" },
-  { label: "Female", value: "FEMALE" },
-];
-
-interface UpdateAccountResponseData {
-  profile?: string;
-  firstName?: string | null;
-  middleName?: string | null;
-  lastName?: string | null;
-  gender?: string | null;
-  phone?: string | null;
-  address?: string | null;
-}
 
 function resolveProfileUrl(path?: string | null) {
   if (!path) return "";
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  
+  // Get API base URL and extract origin
   const base = process.env.NEXT_PUBLIC_API_URL;
   if (base) {
     try {
       const url = new URL(base);
-      return `${url.origin}${path.startsWith("/") ? path : `/${path}`}`;
+      // Ensure path starts with / for proper URL construction
+      const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+      return `${url.origin}${normalizedPath}`;
     } catch {
-      // ignore and fall back
+      // If base URL parsing fails, fall back to window origin
     }
   }
+  
+  // Fallback to current window origin
   if (typeof window !== "undefined") {
-    return `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    return `${window.location.origin}${normalizedPath}`;
   }
+  
   return path;
 }
 
 export default function AccountPage() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
-  const [updateProfile, { isLoading: updatingProfile }] = useUpdateAccountMutation();
+  const [updateProfile, { isLoading: updatingProfile }] = useUpdateProfileMutation();
   const [changePassword, { isLoading: changingPassword }] = useChangePasswordMutation();
+  const [uploadAvatar, { isLoading: uploadingAvatar }] = useUploadAvatarMutation();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const defaultProfileSrc = useMemo(() => resolveProfileUrl(user?.profile ?? undefined), [user?.profile]);
+  const defaultProfileSrc = useMemo(() => resolveProfileUrl(user?.avatarUrl ?? user?.avatar ?? undefined), [user?.avatarUrl, user?.avatar]);
 
   const [profileForm, setProfileForm] = useState({
     firstName: user?.firstName ?? "",
-    middleName: user?.middleName ?? "",
     lastName: user?.lastName ?? "",
-    gender: user?.gender ?? "",
     phone: user?.phone ?? "",
     address: user?.address ?? "",
   });
 
-  const [passwordForm, setPasswordForm] = useState({
+  const [passwordForm, setPasswordForm] = useState<{
+    currentPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  }>({
     currentPassword: "",
     newPassword: "",
-    confirmPassword: "",
+    confirmNewPassword: "",
   });
 
   const [profileFile, setProfileFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(defaultProfileSrc);
   const objectUrlRef = useRef<string | null>(null);
 
-  const rawRoles = user?.roles;
-  const rolesArray = Array.isArray(rawRoles)
-    ? rawRoles
-    : typeof rawRoles === "string" && rawRoles.length > 0
-    ? rawRoles.split(",").map((role) => role.trim()).filter(Boolean)
-    : [];
+  const userRole = user?.role;
 
   const displayName = useMemo(() => {
     if (!user) return "Account";
@@ -103,19 +94,23 @@ export default function AccountPage() {
   useEffect(() => {
     setProfileForm({
       firstName: user?.firstName ?? "",
-      middleName: user?.middleName ?? "",
       lastName: user?.lastName ?? "",
-      gender: user?.gender ?? "",
       phone: user?.phone ?? "",
       address: user?.address ?? "",
     });
   }, [user]);
 
   useEffect(() => {
+    // Only update preview from user state if no file is currently selected
     if (!profileFile) {
-      setAvatarPreview(defaultProfileSrc);
+      const resolvedUrl = resolveProfileUrl(user?.avatarUrl ?? user?.avatar ?? undefined);
+      if (resolvedUrl) {
+        setAvatarPreview(resolvedUrl);
+      } else {
+        setAvatarPreview(null);
+      }
     }
-  }, [defaultProfileSrc, profileFile]);
+  }, [profileFile, user?.avatarUrl, user?.avatar]);
 
   useEffect(() => {
     return () => {
@@ -159,13 +154,11 @@ export default function AccountPage() {
             <p className="text-sm text-muted-foreground">
               Manage your profile and account preferences.
             </p>
-            {rolesArray.length ? (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {rolesArray.map((role) => (
-                  <Badge key={role} variant="secondary" className="capitalize">
-                    {role.replace(/_/g, " ").toLowerCase()}
-                  </Badge>
-                ))}
+            {userRole ? (
+              <div className="mt-3">
+                <Badge variant="secondary" className="capitalize">
+                  {userRole.replace(/_/g, " ").toLowerCase()}
+                </Badge>
               </div>
             ) : null}
           </div>
@@ -190,86 +183,41 @@ export default function AccountPage() {
               e.preventDefault();
               setProfileError(null);
               try {
-                const formData = new FormData();
                 const trimmedFirst = profileForm.firstName.trim();
-                const trimmedMiddle = profileForm.middleName.trim();
                 const trimmedLast = profileForm.lastName.trim();
                 const trimmedPhone = profileForm.phone.trim();
                 const trimmedAddress = profileForm.address.trim();
 
-                if (!trimmedFirst) {
-                  setProfileError("First name is required");
-                  return;
-                }
-                if (!trimmedPhone) {
-                  setProfileError("Phone number is required");
-                  return;
-                }
+                // Update profile fields (firstName, lastName, phone, address only)
+                const profileData: { firstName?: string; lastName?: string; phone?: string; address?: string } = {};
+                if (trimmedFirst) profileData.firstName = trimmedFirst;
+                if (trimmedLast) profileData.lastName = trimmedLast;
+                if (trimmedPhone) profileData.phone = trimmedPhone;
+                if (trimmedAddress) profileData.address = trimmedAddress;
 
-                if (trimmedFirst) formData.append("firstName", trimmedFirst);
-                if (trimmedMiddle || profileForm.middleName.length === 0) formData.append("middleName", trimmedMiddle);
-                if (trimmedLast || profileForm.lastName.length === 0) formData.append("lastName", trimmedLast);
-                if (profileForm.gender) formData.append("gender", profileForm.gender);
-                if (trimmedPhone) formData.append("phone", trimmedPhone);
-                if (trimmedAddress || profileForm.address.length === 0) formData.append("address", trimmedAddress);
-                if (profileFile) formData.append("profile", profileFile);
-
-                const response = await updateProfile(formData).unwrap();
+                const response = await updateProfile(profileData).unwrap();
                 const updatedData =
                   response && typeof response === "object" && "data" in response
-                    ? (response as { data?: UpdateAccountResponseData }).data
+                    ? (response as { data?: Partial<AuthUser> }).data
                     : undefined;
-
-                const updatedProfilePath =
-                  updatedData && typeof updatedData === "object" && "profile" in updatedData
-                    ? (updatedData as { profile?: string }).profile ?? undefined
-                    : profileFile
-                    ? user?.profile
-                    : user?.profile;
 
                 const nextPartial: Partial<AuthUser> = {};
                 if (updatedData?.firstName !== undefined) {
                   nextPartial.firstName = updatedData.firstName ?? null;
-                } else if (trimmedFirst) {
-                  nextPartial.firstName = trimmedFirst;
-                }
-                if (updatedData?.middleName !== undefined) {
-                  nextPartial.middleName = updatedData.middleName ?? null;
-                } else if (profileForm.middleName.length === 0 || trimmedMiddle) {
-                  nextPartial.middleName = trimmedMiddle || null;
                 }
                 if (updatedData?.lastName !== undefined) {
                   nextPartial.lastName = updatedData.lastName ?? null;
-                } else if (profileForm.lastName.length === 0 || trimmedLast) {
-                  nextPartial.lastName = trimmedLast || null;
-                }
-                if (updatedData?.gender !== undefined) {
-                  nextPartial.gender = updatedData.gender ?? null;
-                } else if (profileForm.gender) {
-                  nextPartial.gender = profileForm.gender;
                 }
                 if (updatedData?.phone !== undefined) {
-                  nextPartial.phone = updatedData.phone ?? trimmedPhone ?? user?.phone ?? "";
-                } else if (trimmedPhone) {
-                  nextPartial.phone = trimmedPhone;
+                  nextPartial.phone = updatedData.phone ?? null;
                 }
                 if (updatedData?.address !== undefined) {
                   nextPartial.address = updatedData.address ?? null;
-                } else if (profileForm.address.length === 0 || trimmedAddress) {
-                  nextPartial.address = trimmedAddress || null;
-                }
-                if (updatedProfilePath !== undefined) {
-                  nextPartial.profile = updatedProfilePath ?? null;
                 }
 
                 if (Object.keys(nextPartial).length > 0) {
                   updateUser(nextPartial);
                 }
-                if (objectUrlRef.current) {
-                  URL.revokeObjectURL(objectUrlRef.current);
-                  objectUrlRef.current = null;
-                }
-                setProfileFile(null);
                 toast.success("Profile updated");
               } catch (err) {
                 const message =
@@ -280,13 +228,89 @@ export default function AccountPage() {
               }
             }}
           >
-            <div className="space-y-1">
+            <div className="space-y-2">
               <label className="text-xs text-muted-foreground">Profile photo</label>
               <ImageUpload
+                key={user?.avatarUrl || user?.avatar || 'no-avatar'}
                 value={avatarPreview ?? undefined}
                 onChange={handleProfileImageChange}
                 onRemove={() => handleProfileImageChange(null)}
               />
+              {profileFile ? (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const avatarFormData = new FormData();
+                        avatarFormData.append("file", profileFile);
+                        const avatarResponse = await uploadAvatar(avatarFormData).unwrap();
+                        
+                        // Clean up object URL first
+                        if (objectUrlRef.current) {
+                          URL.revokeObjectURL(objectUrlRef.current);
+                          objectUrlRef.current = null;
+                        }
+                        
+                        // Extract avatarUrl from response
+                        // Response can be: { success: true, data: { avatarUrl: "..." } } or { avatarUrl: "..." } directly
+                        let newAvatarUrl: string | null | undefined;
+                        if (avatarResponse && typeof avatarResponse === "object") {
+                          // Check if response has a data wrapper
+                          if ("data" in avatarResponse && avatarResponse.data) {
+                            const data = avatarResponse.data as Partial<AuthUser>;
+                            newAvatarUrl = (data.avatarUrl ?? data.avatar) || undefined;
+                          } 
+                          // Check if avatarUrl is directly in the response
+                          else if ("avatarUrl" in avatarResponse) {
+                            newAvatarUrl = (avatarResponse as Partial<AuthUser>).avatarUrl || undefined;
+                          }
+                        }
+                        
+                        if (newAvatarUrl) {
+                          // Resolve the URL first
+                          const resolvedUrl = resolveProfileUrl(newAvatarUrl);
+                          console.log('[Avatar Upload] Full response:', JSON.stringify(avatarResponse, null, 2));
+                          console.log('[Avatar Upload] Extracted avatarUrl:', newAvatarUrl);
+                          console.log('[Avatar Upload] Resolved URL:', resolvedUrl);
+                          
+                          // Update user state immediately
+                          updateUser({ avatarUrl: newAvatarUrl, avatar: newAvatarUrl });
+                          
+                          // Update preview with resolved URL immediately
+                          setAvatarPreview(resolvedUrl || null);
+                        } else {
+                          console.warn('[Avatar Upload] No avatarUrl found in response:', JSON.stringify(avatarResponse, null, 2));
+                        }
+                        
+                        // Clear the file selection after successful upload
+                        setProfileFile(null);
+                        toast.success("Avatar uploaded successfully");
+                      } catch (err) {
+                        const message =
+                          (err as { data?: { message?: string | string[] } })?.data?.message ??
+                          "Failed to upload avatar";
+                        toast.error(Array.isArray(message) ? message.join(", ") : String(message));
+                      }
+                    }}
+                    disabled={uploadingAvatar}
+                  >
+                    {uploadingAvatar ? "Uploading…" : "Upload Avatar"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      handleProfileImageChange(null);
+                      setProfileFile(null);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ) : null}
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-1">
@@ -308,35 +332,6 @@ export default function AccountPage() {
                   }
                   autoComplete="family-name"
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Middle name</label>
-                <Input
-                  value={profileForm.middleName}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                    setProfileForm((prev) => ({ ...prev, middleName: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Gender</label>
-                <Select
-                  value={profileForm.gender}
-                  onValueChange={(value) =>
-                    setProfileForm((prev) => ({ ...prev, gender: value ?? "" }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {genderOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -378,11 +373,17 @@ export default function AccountPage() {
           <p className="text-sm text-muted-foreground">Account status and security.</p>
           <dl className="mt-3 space-y-3 text-sm">
             <div>
-              <dt className="text-muted-foreground">Status</dt>
+              <dt className="text-muted-foreground">Role</dt>
               <dd>
-                <Badge variant={user?.is_active ? "default" : "outline"}>
-                  {user?.is_active ? "Active" : "Inactive"}
+                <Badge variant="secondary" className="capitalize">
+                  {user?.role ? user.role.replace(/_/g, " ").toLowerCase() : "—"}
                 </Badge>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Last Login</dt>
+              <dd className="font-medium">
+                {user?.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Never"}
               </dd>
             </div>
             <div>
@@ -414,11 +415,11 @@ export default function AccountPage() {
               onSubmit={async (event: React.FormEvent<HTMLFormElement>) => {
                 event.preventDefault();
                 setPasswordError(null);
-                if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
-                  setPasswordError("Password must be at least 6 characters");
+                if (!passwordForm.newPassword || passwordForm.newPassword.length < 8) {
+                  setPasswordError("Password must be at least 8 characters");
                   return;
                 }
-                if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
                   setPasswordError("New passwords do not match");
                   return;
                 }
@@ -426,10 +427,10 @@ export default function AccountPage() {
                   await changePassword({
                     currentPassword: passwordForm.currentPassword,
                     newPassword: passwordForm.newPassword,
-                    confirmPassword: passwordForm.confirmPassword,
+                    confirmNewPassword: passwordForm.confirmNewPassword,
                   }).unwrap();
                   toast.success("Password updated");
-                  setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                  setPasswordForm({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
                 } catch (err) {
                   const message =
                     (err as { data?: { message?: string | string[] } })?.data?.message ??
@@ -466,9 +467,9 @@ export default function AccountPage() {
                   <label className="text-xs text-muted-foreground">Confirm password</label>
                   <Input
                     type="password"
-                    value={passwordForm.confirmPassword}
+                    value={passwordForm.confirmNewPassword}
                     onChange={(event) =>
-                      setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                      setPasswordForm((prev) => ({ ...prev, confirmNewPassword: event.target.value }))
                     }
                     autoComplete="new-password"
                   />

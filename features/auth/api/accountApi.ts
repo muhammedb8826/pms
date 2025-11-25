@@ -1,34 +1,40 @@
 "use client";
 
 import { baseApi } from "@/features/common/api/baseApi";
+import type { User } from "@/features/auth/types";
 
-interface UpdateAccountPayload {
+interface UpdateProfilePayload {
   firstName?: string;
-  middleName?: string;
   lastName?: string;
-  gender?: string;
   phone?: string;
   address?: string;
 }
 
-type UpdateAccountRequest = UpdateAccountPayload | FormData;
+type UpdateProfileRequest = UpdateProfilePayload | FormData;
 
 interface ChangePasswordPayload {
   currentPassword: string;
   newPassword: string;
-  confirmPassword: string;
+  confirmNewPassword: string;
 }
 
 interface AccountResponse {
   success?: boolean;
-  data?: unknown;
+  data?: User;
 }
 
 export const accountApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    updateAccount: build.mutation<AccountResponse, UpdateAccountRequest>({
+    getMe: build.query<User, void>({
+      query: () => ({
+        url: "/account/me",
+        method: "GET",
+      }),
+      providesTags: [{ type: "Account", id: "ME" }, { type: "User", id: "ME" }],
+    }),
+    updateProfile: build.mutation<AccountResponse, UpdateProfileRequest>({
       query: (data) => ({
-        url: "/users/me",
+        url: "/account/profile",
         method: "PATCH",
         body: data,
       }),
@@ -36,14 +42,35 @@ export const accountApi = baseApi.injectEndpoints({
     }),
     changePassword: build.mutation<AccountResponse, ChangePasswordPayload>({
       query: (data) => ({
-        url: "/users/me/password",
+        url: "/account/password",
         method: "PATCH",
         body: data,
       }),
     }),
+    uploadAvatar: build.mutation<AccountResponse, FormData>({
+      query: (formData) => ({
+        url: "/account/avatar",
+        method: "POST",
+        body: formData,
+      }),
+      invalidatesTags: [{ type: "Account", id: "ME" }, { type: "User", id: "ME" }],
+    }),
+    deleteAvatar: build.mutation<AccountResponse, void>({
+      query: () => ({
+        url: "/account/avatar",
+        method: "DELETE",
+      }),
+      invalidatesTags: [{ type: "Account", id: "ME" }, { type: "User", id: "ME" }],
+    }),
   }),
 });
 
-export const { useUpdateAccountMutation, useChangePasswordMutation } = accountApi;
+export const {
+  useGetMeQuery,
+  useUpdateProfileMutation,
+  useChangePasswordMutation,
+  useUploadAvatarMutation,
+  useDeleteAvatarMutation,
+} = accountApi;
 
 

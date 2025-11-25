@@ -1,7 +1,6 @@
 import axios from 'axios';
 import type { ImportResult } from '@/types/product-import';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.daminaa.org/api/v1';
+import { API_BASE_URL } from '@/lib/config/api';
 
 class ProductImportService {
   private getAuthHeaders() {

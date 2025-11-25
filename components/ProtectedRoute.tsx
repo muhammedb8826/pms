@@ -3,23 +3,20 @@
 import React from 'react';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import type { AuthRole } from '@/features/auth/types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRoles?: string[];
+  requiredRoles?: AuthRole[];
 }
 
 export default function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const userRoles = React.useMemo(() => {
-    if (!user) return [];
-    const roles = user.roles;
-    if (Array.isArray(roles)) return roles;
-    if (typeof roles === 'string' && roles.length > 0) {
-      return roles.split(',').map((role) => role.trim()).filter(Boolean);
-    }
-    return [];
+    if (!user || !user.role) return [];
+    // Backend returns single role, convert to array for compatibility
+    return [user.role];
   }, [user]);
 
   React.useEffect(() => {

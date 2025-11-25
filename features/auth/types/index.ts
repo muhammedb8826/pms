@@ -1,15 +1,29 @@
+// Role enum matching backend Role enum
+export type AuthRole = 
+  | 'USER'
+  | 'ADMIN'
+  | 'PHARMACIST_IN_CHARGE'
+  | 'PHARMACIST'
+  | 'PHARMACY_TECHNICIAN'
+  | 'STORE_MANAGER'
+  | 'CASHIER'
+  | 'INVENTORY_CONTROLLER'
+  | 'PROCUREMENT_OFFICER'
+  | 'FINANCE_OFFICER'
+  | 'DELIVERY_PERSON';
+
 export interface User {
   id: string;
   email: string;
+  role: AuthRole;
   firstName?: string | null;
-  middleName?: string | null;
   lastName?: string | null;
-  gender?: string | null;
-  phone: string;
+  phone?: string | null;
   address?: string | null;
-  profile?: string | null;
-  roles: string | string[];
-  is_active: boolean;
+  avatar?: string | null; // Legacy field name
+  avatarUrl?: string | null; // Backend returns this field
+  isActive?: boolean;
+  lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

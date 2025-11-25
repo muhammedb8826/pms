@@ -9,38 +9,30 @@ export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     signup: builder.mutation<AuthResponse, SignupRequest>({
       query: (data) => ({
-        url: '/signup',
+        url: '/auth/signup',
         method: 'POST',
         body: data,
       }),
     }),
     signin: builder.mutation<AuthResponse, SigninRequest>({
       query: (data) => ({
-        url: '/signin',
+        url: '/auth/login',
         method: 'POST',
         body: data,
       }),
     }),
     logout: builder.mutation<void, void>({
       query: () => ({
-        url: '/logout',
+        url: '/auth/logout',
         method: 'POST',
       }),
     }),
-    refreshTokens: builder.mutation<AuthResponse, void>({
-      query: () => {
-        const refreshToken =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('refreshToken')
-            : null;
-        return {
-          url: '/refresh',
-          method: 'POST',
-          headers: refreshToken
-            ? { authorization: `Bearer ${refreshToken}` }
-            : undefined,
-        };
-      },
+    refreshTokens: builder.mutation<AuthResponse, { refreshToken: string }>({
+      query: (data) => ({
+        url: '/auth/refresh',
+        method: 'POST',
+        body: data,
+      }),
     }),
   }),
 });

@@ -29,9 +29,7 @@ import type {
   UpdateUnitOfMeasureDto,
 } from '@/types/uom';
 import type { ImportResult } from '@/types/product-import';
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.qenenia.com/api/v1';
+import { API_BASE_URL } from '@/lib/config/api';
 
 const getAuthToken = () => {
   if (typeof window === 'undefined') return null;
@@ -68,21 +66,21 @@ export const apiSlice = createApi({
     // Auth endpoints
     signup: builder.mutation<AuthResponse, SignupRequest>({
       query: (data) => ({
-        url: '/signup',
+        url: '/auth/signup',
         method: 'POST',
         body: data,
       }),
     }),
     signin: builder.mutation<AuthResponse, SigninRequest>({
       query: (data) => ({
-        url: '/signin',
+        url: '/auth/login',
         method: 'POST',
         body: data,
       }),
     }),
     logout: builder.mutation<void, void>({
       query: () => ({
-        url: '/logout',
+        url: '/auth/logout',
         method: 'POST',
       }),
     }),
@@ -93,7 +91,7 @@ export const apiSlice = createApi({
             ? localStorage.getItem('refreshToken')
             : null;
         return {
-          url: '/refresh',
+          url: '/auth/refresh',
           method: 'POST',
           headers: refreshToken
             ? { authorization: `Bearer ${refreshToken}` }

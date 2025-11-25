@@ -89,6 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshTokens = async () => {
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
     const response = await authService.refreshTokens();
     // Validate response structure
     if (!response || !response.tokens) {
