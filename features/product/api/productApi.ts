@@ -111,7 +111,7 @@ export const productApi = baseApi.injectEndpoints({
       query: () => '/products/low-stock',
       providesTags: ['Products'],
     }),
-    importProducts: builder.mutation<{ imported: number; errors?: string[] }, File>({
+    importProducts: builder.mutation<ImportResult, File>({
       query: (file) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -128,6 +128,7 @@ export const productApi = baseApi.injectEndpoints({
         url: '/products/import/template',
         responseHandler: (response) => response.blob(),
       }),
+      keepUnusedDataFor: 0, // Don't cache blob responses (non-serializable)
     }),
     importProductsSimple: builder.mutation<ImportResult, File>({
       query: (file) => {

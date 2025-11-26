@@ -220,6 +220,7 @@ export const apiSlice = createApi({
         url: '/products/import/template',
         responseHandler: (response) => response.blob(),
       }),
+      keepUnusedDataFor: 0, // Don't cache blob responses (non-serializable)
     }),
     importProductsSimple: builder.mutation<ImportResult, File>({
       query: (file) => {

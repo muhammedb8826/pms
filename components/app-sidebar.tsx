@@ -56,44 +56,33 @@ const data = {
       ],
     },
     {
-      title: "Sales",
-      url: "/sales",
+      title: "Operations",
+      url: "#",
       icon: IconChartBar,
+      items: [
+        { title: "Sales", url: "/sales" },
+        { title: "Purchases", url: "/purchases" },
+        { title: "Requisition", url: "/requisition" },
+      ],
     },
     {
-      title: "Purchases",
-      url: "/purchases",
-      icon: IconShoppingCart,
-    },
-    {
-      title: "Credits",
-      url: "/credits",
-      icon: IconCreditCard,
-    },
-    {
-      title: "Customers",
-      url: "/customers",
+      title: "Customers & Partners",
+      url: "#",
       icon: IconUsers,
+      items: [
+        { title: "Customers", url: "/customers" },
+        { title: "Suppliers", url: "/suppliers" },
+        { title: "Users", url: "/users" },
+      ],
     },
     {
-      title: "Suppliers",
-      url: "/suppliers",
-      icon: IconUsers,
-    },
-    {
-      title: "Users",
-      url: "/users",
-      icon: IconUsers,
-    },
-    {
-      title: "Requisition",
-      url: "/requisition",
-      icon: IconFilePlus,
-    },
-    {
-      title: "Commissions",
-      url: "/commissions",
+      title: "Finance",
+      url: "#",
       icon: IconCurrencyDollar,
+      items: [
+        { title: "Credits", url: "/credits" },
+        { title: "Commissions", url: "/commissions" },
+      ],
     },
   ],
   // navClouds: [

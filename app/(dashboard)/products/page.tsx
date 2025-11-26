@@ -40,7 +40,7 @@ import { DashboardDataTable } from '@/components/dashboard-data-table';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import { useProducts, useDeleteProduct } from '@/features/product/hooks/useProducts';
 import {
-  useImportProductsSimpleMutation,
+  useImportProductsMutation,
   useLazyDownloadProductTemplateQuery,
 } from '@/features/product/api/productApi';
 import type { Product } from '@/features/product/types';
@@ -65,7 +65,7 @@ function resolveImageUrl(path?: string | null) {
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
-  currency: 'USD',
+  currency: 'ETB',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -79,6 +79,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
+  const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const { products, total, loading, error, refetch } = useProducts(page, pageSize, {
     search,
@@ -88,8 +90,8 @@ export default function ProductsPage() {
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize) || 1), [total, pageSize]);
 
   const deleteMutation = useDeleteProduct();
-  const [importProducts] = useImportProductsSimpleMutation();
-  const [downloadTemplate] = useLazyDownloadProductTemplateQuery();
+  const [importProducts, { isLoading: isImporting }] = useImportProductsMutation();
+  const [downloadTemplate, { isLoading: isDownloadingTemplate }] = useLazyDownloadProductTemplateQuery();
 
 
   const handleEdit = useCallback(
@@ -277,25 +279,42 @@ export default function ProductsPage() {
       try {
         if (!/\.(xlsx|xls)$/i.test(file.name)) {
           toast.error('Please select an Excel file (.xlsx or .xls)');
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
           return;
         }
         if (file.size > 10 * 1024 * 1024) {
           toast.error('File size must be less than 10MB');
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
           return;
         }
         const result = await importProducts(file).unwrap();
+        setImportResult({
+          success: result.success || 0,
+          failed: result.failed || 0,
+          errors: result.errors || [],
+        });
         if (result.success > 0) {
-          toast.success(`Imported ${result.success} products`);
+          toast.success(`Successfully imported ${result.success} product${result.success === 1 ? '' : 's'}`);
         }
-        if (result.failed > 0) {
-          toast.error(`Failed to import ${result.failed} products`);
+        if (result.failed > 0 || (result.errors && result.errors.length > 0)) {
+          setShowImportDialog(true);
         }
-        refetch();
+        if (result.success > 0) {
+          refetch();
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Import failed';
         toast.error(message);
+        handleApiError(err);
       } finally {
-        event.currentTarget.value = '';
+        // Use ref instead of event.currentTarget to avoid null reference errors
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     },
     [importProducts, refetch],
@@ -495,18 +514,61 @@ export default function ProductsPage() {
           headerActions={
             <div className="flex flex-wrap items-center gap-2">
               <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportChange} />
-              <Button variant="outline" onClick={handleImportClick}>
+              <Button variant="outline" onClick={handleImportClick} disabled={isImporting}>
                 <IconUpload className="mr-2 size-4" />
-                Import
+                {isImporting ? 'Importing...' : 'Import'}
               </Button>
-              <Button variant="outline" onClick={handleDownloadTemplate}>
+              <Button variant="outline" onClick={handleDownloadTemplate} disabled={isDownloadingTemplate}>
                 <IconFileDownload className="mr-2 size-4" />
-                Template
+                {isDownloadingTemplate ? 'Downloading...' : 'Template'}
               </Button>
             </div>
           }
         />
       </div>
+
+      {/* Import Results Dialog */}
+      <AlertDialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <AlertHeader>
+            <AlertDialogTitle>Import Results</AlertDialogTitle>
+            {importResult && (
+              <AlertDesc>
+                Import completed with {importResult.success} successful and {importResult.failed} failed.
+              </AlertDesc>
+            )}
+          </AlertHeader>
+          {importResult && (
+            <div className="space-y-4 mt-4">
+              <div className="flex gap-4">
+                <div className="flex-1 rounded-lg border bg-green-50 dark:bg-green-950/20 p-3">
+                  <div className="text-sm font-medium text-green-900 dark:text-green-100">Successfully Imported</div>
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">{importResult.success}</div>
+                </div>
+                <div className="flex-1 rounded-lg border bg-red-50 dark:bg-red-950/20 p-3">
+                  <div className="text-sm font-medium text-red-900 dark:text-red-100">Failed</div>
+                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">{importResult.failed}</div>
+                </div>
+              </div>
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium mb-2">Errors:</div>
+                  <div className="max-h-64 overflow-y-auto space-y-1">
+                    {importResult.errors.map((error, index) => (
+                      <div key={index} className="text-sm text-muted-foreground p-2 rounded bg-muted">
+                        {error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <AlertFooter>
+            <AlertDialogAction onClick={() => setShowImportDialog(false)}>Close</AlertDialogAction>
+          </AlertFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

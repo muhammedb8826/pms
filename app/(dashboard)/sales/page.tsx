@@ -8,6 +8,7 @@ import {
   IconDotsVertical,
   IconFilePlus,
   IconPencil,
+  IconPrinter,
   IconSettings,
 } from '@tabler/icons-react';
 
@@ -41,7 +42,7 @@ import type { Customer } from '@/features/customer/types';
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
-  currency: 'USD',
+  currency: 'ETB',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -85,6 +86,10 @@ export default function SalesPage() {
 
   const handleEdit = useCallback((sale: Sale) => {
     router.push(`/sales/${sale.id}/edit`);
+  }, [router]);
+
+  const handleViewVoucher = useCallback((sale: Sale) => {
+    router.push(`/sales/${sale.id}/voucher`);
   }, [router]);
 
   const handleDelete = useCallback(
@@ -281,7 +286,21 @@ export default function SalesPage() {
                       e.stopPropagation();
                     }}
                   >
+                    <IconPencil className="mr-2 size-4" />
                     Edit sale
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleViewVoucher(sale);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <IconPrinter className="mr-2 size-4" />
+                    Print Voucher
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -300,7 +319,7 @@ export default function SalesPage() {
         },
       },
     ];
-  }, [handleEdit]);
+  }, [handleEdit, handleViewVoucher]);
 
   if (error) {
     return <div className="p-4 text-sm text-destructive">Error: {error instanceof Error ? error.message : 'Failed to load sales'}</div>;

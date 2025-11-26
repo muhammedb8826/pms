@@ -15,7 +15,7 @@ import type { DashboardStats } from "@/features/dashboard/types"
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
-  currency: "USD",
+  currency: "ETB",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });

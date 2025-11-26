@@ -39,7 +39,7 @@ import { handleApiError, handleApiSuccess } from "@/lib/utils/api-error-handler"
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
-  currency: "USD",
+  currency: "ETB",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });

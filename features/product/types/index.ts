@@ -20,6 +20,7 @@ export interface Batch {
 export interface Product {
   id: string;
   name: string;
+  productCode?: string;
   genericName?: string | null;
   description?: string | null;
   image?: string | null;
@@ -44,6 +45,7 @@ export interface Product {
 
 export interface CreateProductDto {
   name: string;
+  productCode: string;
   genericName?: string;
   description?: string;
   categoryId: string;

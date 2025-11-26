@@ -44,7 +44,7 @@ import { handleApiError, handleApiSuccess } from "@/lib/utils/api-error-handler"
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
-  currency: "USD",
+  currency: "ETB",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });

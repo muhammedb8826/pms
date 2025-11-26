@@ -151,15 +151,24 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
     try {
       const parsed = saleSchema.parse({ customerId, date, status, notes: notes || undefined, items });
       if (sale) {
+        // Note: Batch quantity validation is handled by the backend
+        // Frontend validation is shown in the ItemRow component
         const data: UpdateSaleDto = {
           date: parsed.date,
           status: parsed.status,
           notes: parsed.notes,
-          // Do not send items in the sale update payload; manage via sale-items endpoints
+          items: parsed.items as CreateSaleItemDto[], // Include items for update as per guide
         };
         await updateSale({ id: sale.id, data }).unwrap();
-        handleApiSuccess('Sale updated successfully');
+        const statusMsg = parsed.status === 'CANCELLED' && sale.status === 'COMPLETED'
+          ? 'Sale cancelled and inventory restored'
+          : parsed.status === 'COMPLETED' && sale.status !== 'COMPLETED'
+          ? 'Sale completed and inventory deducted'
+          : 'Sale updated successfully';
+        handleApiSuccess(statusMsg);
       } else {
+        // Note: Batch quantity validation is handled by the backend
+        // Frontend validation is shown in the ItemRow component
         const dto: CreateSaleDto = {
           customerId: parsed.customerId,
           date: parsed.date,
@@ -168,7 +177,8 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
           items: parsed.items as CreateSaleItemDto[],
         };
         await createSale(dto).unwrap();
-        handleApiSuccess('Sale created successfully');
+        const statusMsg = parsed.status === 'COMPLETED' ? 'Sale created and inventory deducted' : 'Sale created successfully';
+        handleApiSuccess(statusMsg);
       }
       onSuccess?.();
     } catch (err) {
@@ -300,11 +310,17 @@ function ItemRow({
   const batches = useMemo(() => {
     type WR<T> = { success: boolean; data: T };
     const d = batchesData as BatchType[] | WR<BatchType[]> | undefined;
+    let allBatches: BatchType[] = [];
     if (!d) return [] as BatchType[];
-    if (Array.isArray(d)) return d;
-    if ('success' in d && d.success && Array.isArray(d.data)) return d.data;
-    return [] as BatchType[];
+    if (Array.isArray(d)) allBatches = d;
+    else if ('success' in d && d.success && Array.isArray(d.data)) allBatches = d.data;
+    // Filter batches with quantity > 0
+    return allBatches.filter((b) => (b.quantity ?? 0) > 0);
   }, [batchesData]);
+
+  const selectedBatch = useMemo(() => {
+    return batches.find((b) => b.id === value.batchId);
+  }, [batches, value.batchId]);
 
   return (
     <tr className="border-b">
@@ -327,13 +343,38 @@ function ItemRow({
           </SelectTrigger>
           <SelectContent>
             {batches.map((b: BatchType) => (
-              <SelectItem key={b.id} value={b.id}>{b.batchNumber}</SelectItem>
+              <SelectItem key={b.id} value={b.id}>
+                {b.batchNumber} (Available: {b.quantity ?? 0})
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {selectedBatch && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Available: {selectedBatch.quantity ?? 0}
+          </div>
+        )}
       </td>
       <td className="p-2 w-24">
-        <Input type="number" value={value.quantity} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'quantity', Number(e.target.value))} />
+        <Input
+          type="number"
+          min={1}
+          max={selectedBatch?.quantity ?? undefined}
+          value={value.quantity}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            const qty = Number(e.target.value);
+            if (selectedBatch && qty > (selectedBatch.quantity ?? 0)) {
+              // Show validation error but allow typing
+              return;
+            }
+            onChange(index, 'quantity', qty);
+          }}
+        />
+        {selectedBatch && value.quantity > (selectedBatch.quantity ?? 0) && (
+          <div className="text-xs text-destructive mt-1">
+            Exceeds available quantity ({selectedBatch.quantity ?? 0})
+          </div>
+        )}
       </td>
       <td className="p-2 w-28">
         <Input type="number" value={value.unitPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'unitPrice', Number(e.target.value))} />

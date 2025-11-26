@@ -6,7 +6,11 @@ export interface SaleItem {
   product: {
     id: string;
     name: string;
+    productCode?: string;
     category?: { id: string; name: string };
+    strength?: string;
+    dosageForm?: string;
+    defaultUom?: { name: string };
   };
   batch: {
     id: string;
@@ -34,6 +38,7 @@ export interface Sale {
   };
   date: string; // YYYY-MM-DD
   totalAmount: number | string; // backend may return string
+  paidAmount?: number | string; // optional, used for vouchers
   status: SaleStatus;
   notes?: string | null;
   items: SaleItem[];

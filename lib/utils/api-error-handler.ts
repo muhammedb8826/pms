@@ -1,26 +1,12 @@
 import { toast } from 'sonner';
+import type { ErrorResponse, ErrorCode } from '@/types/api-response';
+import { extractErrorMessage as extractFromResponse, extractErrorCode } from '@/types/api-response';
 
 /**
- * API Error Response Types
- * Based on backend documentation:
- * - Actual format: { statusCode, message: { message, error, statusCode } }
- * - Documented format: { success: false, message: string | string[], error: { code, details } }
+ * RTK Query error structure
  */
-type ApiErrorData = {
-  // Actual API format (current implementation)
-  statusCode?: number;
-  message?: string | string[] | { message?: string; error?: string; statusCode?: number };
-  // Documented API format
-  success?: boolean;
-  error?: {
-    code?: string;
-    details?: string;
-    field?: string;
-  };
-};
-
 type RTKQueryError = {
-  data?: ApiErrorData;
+  data?: ErrorResponse | unknown;
   status?: number;
   message?: string;
 };
@@ -44,26 +30,35 @@ function extractMessage(msg: unknown): string | undefined {
 function getErrorMessageFromCode(code: number | string): string {
   switch (code) {
     case 409:
-    case 'CONFLICT':
+    case ErrorCode.CONFLICT:
+    case ErrorCode.DUPLICATE_ENTRY:
       return 'This resource already exists or conflicts with existing data';
     case 404:
-    case 'NOT_FOUND':
+    case ErrorCode.NOT_FOUND:
       return 'Resource not found';
     case 400:
-    case 'BAD_REQUEST':
+    case ErrorCode.BAD_REQUEST:
       return 'Invalid data provided. Please check all fields.';
     case 422:
-    case 'VALIDATION_ERROR':
+    case ErrorCode.VALIDATION_ERROR:
       return 'Validation failed. Please check your input.';
     case 401:
-    case 'UNAUTHORIZED':
+    case ErrorCode.UNAUTHORIZED:
+    case ErrorCode.INVALID_CREDENTIALS:
+    case ErrorCode.TOKEN_EXPIRED:
       return 'Authentication required. Please log in.';
     case 403:
-    case 'FORBIDDEN':
+    case ErrorCode.FORBIDDEN:
       return 'You do not have permission to perform this action.';
+    case 429:
+    case ErrorCode.RATE_LIMIT_EXCEEDED:
+      return 'Too many requests. Please try again later.';
     case 500:
-    case 'INTERNAL_ERROR':
+    case ErrorCode.INTERNAL_ERROR:
       return 'An internal server error occurred. Please try again later.';
+    case 503:
+    case ErrorCode.SERVICE_UNAVAILABLE:
+      return 'Service temporarily unavailable. Please try again later.';
     default:
       return typeof code === 'number'
         ? `Operation failed (${code})`
@@ -73,51 +68,58 @@ function getErrorMessageFromCode(code: number | string): string {
 
 /**
  * Extract error message from RTK Query error structure
- * Handles both actual and documented API error formats
+ * Handles both standardized and legacy API error formats
  */
 export function extractErrorMessage(err: unknown): string {
-  let errorMessage = 'Operation failed';
+  // First try the standardized extractor
+  const standardizedMessage = extractFromResponse(err);
+  if (standardizedMessage && standardizedMessage !== 'An error occurred') {
+    return standardizedMessage;
+  }
 
-  if (!err) return errorMessage;
+  // Fallback to legacy format handling
+  if (!err) return 'Operation failed';
 
   const errorObj = err as RTKQueryError;
-  const errorData = errorObj.data || (err as ApiErrorData);
+  const errorData = errorObj.data;
 
-        // Try various error message paths (in order of priority)
-        const candidates: (string | undefined)[] = [
-          // Priority 1: Actual API format - nested message.message
-          // Format: { statusCode: 409, message: { message: "...", error: "...", statusCode: 409 } }
-          errorData?.message &&
-          typeof errorData.message === 'object' &&
-          !Array.isArray(errorData.message) &&
-          'message' in errorData.message
-            ? extractMessage((errorData.message as { message?: unknown }).message)
-            : undefined,
-          // Priority 2: Documented API format - direct message string or array
-          // Format: { success: false, message: "..." or ["...", "..."] }
-          extractMessage(errorData?.message),
-          // Priority 3: Documented API format - error.details
-          // Format: { success: false, error: { details: "..." } }
-          errorData?.error?.details,
-          // Priority 4: Top-level message
-          errorObj.message,
-        ];
+  // Try various error message paths (in order of priority)
+  const candidates: (string | undefined)[] = [
+    // Priority 1: Standardized error response
+    errorData && typeof errorData === 'object' && 'message' in errorData
+      ? extractMessage((errorData as { message?: unknown }).message)
+      : undefined,
+    // Priority 2: Legacy format - nested message.message
+    errorData &&
+    typeof errorData === 'object' &&
+    'message' in errorData &&
+    typeof (errorData as { message?: unknown }).message === 'object' &&
+    !Array.isArray((errorData as { message?: unknown }).message)
+      ? extractMessage(((errorData as { message?: { message?: unknown } }).message as { message?: unknown }).message)
+      : undefined,
+    // Priority 3: Legacy format - error.details
+    errorData && typeof errorData === 'object' && 'error' in errorData
+      ? (errorData as { error?: { details?: string } }).error?.details
+      : undefined,
+    // Priority 4: Top-level message
+    errorObj.message,
+  ];
 
   const firstString = candidates.find((c) => typeof c === 'string');
   if (firstString) {
-    errorMessage = firstString;
-  } else {
-    // Fallback to status code/error code messages
-    const statusCode = errorObj.status || errorData?.statusCode;
-    const errorCode = errorData?.error?.code;
-    const code = errorCode || statusCode;
-
-    if (code) {
-      errorMessage = getErrorMessageFromCode(code);
-    }
+    return firstString;
   }
 
-  return errorMessage;
+  // Fallback to status code/error code messages
+  const statusCode = errorObj.status;
+  const errorCode = extractErrorCode(err);
+  const code = errorCode || statusCode;
+
+  if (code) {
+    return getErrorMessageFromCode(code);
+  }
+
+  return 'Operation failed';
 }
 
 /**

@@ -22,7 +22,8 @@ class ProductImportService {
     const formData = new FormData();
     formData.append('file', file);
     const headers = { ...this.getAuthHeaders(), 'Content-Type': 'multipart/form-data' } as Record<string, string>;
-    const response = await axios.post(`${API_BASE_URL}/products/import/simple`, formData, { headers });
+    // Backend expects POST /products/import with multipart/form-data and field name `file`
+    const response = await axios.post(`${API_BASE_URL}/products/import`, formData, { headers });
     return response.data;
   }
 }

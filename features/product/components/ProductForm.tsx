@@ -24,6 +24,7 @@ import { useUploadProductImage } from '@/features/product/hooks/useProducts';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
+  productCode: z.string().min(1, 'Product code is required'),
   genericName: z.string().optional(),
   description: z.string().optional(),
   categoryId: z.string().min(1, 'Category is required'),
@@ -47,6 +48,7 @@ interface ProductFormProps {
 export function ProductForm({ product, onSuccess, onCancel, formId, hideActions, onErrorChange, onSubmittingChange }: ProductFormProps) {
   const [form, setForm] = useState<CreateProductDto>({
     name: product?.name ?? '',
+    productCode: product?.productCode ?? '',
     genericName: product?.genericName ?? '',
     description: product?.description ?? '',
     categoryId: product?.category?.id ?? '',
@@ -223,6 +225,11 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
           <label className="block text-sm font-medium">Name *</label>
           <Input value={form.name} onChange={(e) => setField('name', e.target.value)} aria-invalid={Boolean(errors.name)} />
           {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Product Code *</label>
+          <Input value={form.productCode} onChange={(e) => setField('productCode', e.target.value)} aria-invalid={Boolean(errors.productCode)} />
+          {errors.productCode && <p className="text-xs text-red-600">{errors.productCode}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium">Generic Name</label>
