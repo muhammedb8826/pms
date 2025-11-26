@@ -298,7 +298,7 @@ export default function ProductsPage() {
           errors: result.errors || [],
         });
         if (result.success > 0) {
-          toast.success(`Successfully imported ${result.success} product${result.success === 1 ? '' : 's'}`);
+          handleApiSuccess(`Successfully imported ${result.success} product${result.success === 1 ? '' : 's'}`);
         }
         if (result.failed > 0 || (result.errors && result.errors.length > 0)) {
           setShowImportDialog(true);
@@ -307,9 +307,7 @@ export default function ProductsPage() {
           refetch();
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Import failed';
-        toast.error(message);
-        handleApiError(err);
+        handleApiError(err, { defaultMessage: 'Import failed' });
       } finally {
         // Use ref instead of event.currentTarget to avoid null reference errors
         if (fileInputRef.current) {
@@ -324,7 +322,7 @@ export default function ProductsPage() {
     try {
       const { data: blob } = await downloadTemplate();
       if (!blob) {
-        toast.error('Template not available');
+        handleApiError(new Error('Template not available'), { defaultMessage: 'Template not available' });
         return;
       }
       const url = window.URL.createObjectURL(blob);
@@ -335,8 +333,8 @@ export default function ProductsPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch {
-      toast.error('Failed to download template');
+    } catch (err) {
+      handleApiError(err, { defaultMessage: 'Failed to download template' });
     }
   }, [downloadTemplate]);
 

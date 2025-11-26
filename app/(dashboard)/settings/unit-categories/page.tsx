@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash, IconSettings } from '@tabler/icons-react';
+import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -40,10 +40,9 @@ export default function Page() {
     try {
       await deleteMutation.mutateAsync(id);
       refetch();
-      toast.success('Unit category deleted');
+      handleApiSuccess('Unit category deleted');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete unit category';
-      toast.error(message);
+      handleApiError(err, { defaultMessage: 'Failed to delete unit category' });
     }
   }
 

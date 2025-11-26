@@ -95,10 +95,11 @@ export default function Page() {
   const handleDelete = useCallback(
     async (id: string) => {
       try {
-        await deleteMutation.mutateAsync(id);
+        await deleteMutation.mutateAsync(id).unwrap();
         handleApiSuccess('Purchase deleted successfully');
         refetch();
       } catch (err) {
+        // Don't show success toast if there's an error
         handleApiError(err, { defaultMessage: 'Failed to delete purchase' });
       }
     },
@@ -155,6 +156,28 @@ export default function Page() {
               <div className="text-xs text-muted-foreground">Items</div>
               <div className="font-medium text-foreground">{purchase.items?.length || 0}</div>
             </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Paid Amount</div>
+              <div className="font-medium text-foreground">
+                {purchase.paidAmount !== undefined && purchase.paidAmount !== null
+                  ? currencyFormatter.format(Number(purchase.paidAmount))
+                  : currencyFormatter.format(0)}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Balance</div>
+              <div className={`font-medium ${(purchase.totalAmount - (purchase.paidAmount || 0)) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                {currencyFormatter.format(Number(purchase.totalAmount - (purchase.paidAmount || 0)))}
+              </div>
+            </div>
+            {purchase.paymentMethod && (
+              <div>
+                <div className="text-xs text-muted-foreground">Payment Method</div>
+                <div className="mt-1">
+                  <Badge variant="outline">{purchase.paymentMethod.name}</Badge>
+                </div>
+              </div>
+            )}
           </div>
           {purchase.notes && (
             <div>
@@ -339,6 +362,11 @@ export default function Page() {
                           <AlertDesc>
                             This action will permanently delete purchase{' '}
                             <span className="font-medium">{purchase.invoiceNo}</span>. This cannot be undone.
+                            <br />
+                            <br />
+                            <span className="text-sm text-muted-foreground">
+                              Note: Purchases with payments cannot be deleted. Cancel the purchase instead, or delete payments first via payment history.
+                            </span>
                           </AlertDesc>
                         </AlertHeader>
                         <AlertFooter>

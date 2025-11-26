@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
+import { toast } from 'sonner';
+import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCreateUnitOfMeasure, useDeleteUnitOfMeasure, useUnitOfMeasures, useUpdateUnitOfMeasure } from '@/features/uom/hooks/useUnitOfMeasures';
@@ -115,10 +116,9 @@ export default function UnitOfMeasuresPage() {
     try {
       await deleteMutation.mutateAsync(id);
       refetch();
-      toast.success('Unit of measure deleted');
+      handleApiSuccess('Unit of measure deleted');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete unit of measure';
-      toast.error(message);
+      handleApiError(err, { defaultMessage: 'Failed to delete unit of measure' });
     }
   }
 
@@ -142,7 +142,7 @@ export default function UnitOfMeasuresPage() {
             unitCategoryId: editing.unitCategoryId
           } 
         });
-        toast.success('Unit of measure updated');
+        handleApiSuccess('Unit of measure updated');
       } else {
         await createMutation.mutateAsync({ 
           name: editing.name.trim(), 
@@ -151,7 +151,7 @@ export default function UnitOfMeasuresPage() {
           baseUnit: editing.baseUnit ?? false,
           unitCategoryId: editing.unitCategoryId
         });
-        toast.success('Unit of measure created');
+        handleApiSuccess('Unit of measure created');
       }
       if (isCategorySpecificView) {
         setShowInlineForm(false);
@@ -243,7 +243,7 @@ export default function UnitOfMeasuresPage() {
             disabled={!editing?.unitCategoryId}
             onCheckedChange={(checked) => {
               if (checked && existingBaseUnit && existingBaseUnit.id !== editing?.id) {
-                toast.warning(`Setting this as base unit will replace "${existingBaseUnit.name}" as the base unit for this category.`);
+                toast.info(`Setting this as base unit will replace "${existingBaseUnit.name}" as the base unit for this category.`);
               }
               setEditing((prev) => {
                 const updated = { ...(prev || { name: '' }), baseUnit: checked === true };

@@ -8,12 +8,14 @@ import { useCreateSale, useUpdateSale } from '@/features/sale/hooks/useSales';
 import { useAllCustomers } from '@/features/customer/hooks/useCustomers';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
 import { useBatchesByProduct } from '@/features/batch/hooks/useBatches';
+import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Customer } from '@/features/customer/types';
 import type { Product } from '@/features/product/types';
 import type { Batch as BatchType } from '@/features/batch/types';
+import type { PaymentMethod as PaymentMethodEntity } from '@/features/payment-method/types';
 
 const itemSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
@@ -58,6 +60,8 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   const [date, setDate] = useState(sale?.date ?? new Date().toISOString().split('T')[0]);
   const [status, setStatus] = useState<SaleStatus>(sale?.status ?? 'COMPLETED');
   const [notes, setNotes] = useState(sale?.notes ?? '');
+  const [paidAmount, setPaidAmount] = useState<number>(sale?.paidAmount ? Number(sale.paidAmount) : 0);
+  const [paymentMethodId, setPaymentMethodId] = useState<string>('');
   const [items, setItems] = useState<ItemState[]>(
     sale?.items?.length
       ? sale.items.map((it) => ({
@@ -86,6 +90,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   // dropdown data
   const allCustomersQuery = useAllCustomers();
   const allProductsQuery = useAllProducts();
+  const { paymentMethods } = usePaymentMethods({ includeInactive: false });
 
   const customers = useMemo(() => {
     type WR<T> = { success: boolean; data: T };
@@ -159,6 +164,12 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
           notes: parsed.notes,
           items: parsed.items as CreateSaleItemDto[], // Include items for update as per guide
         };
+        if (paidAmount > 0) {
+          data.paidAmount = paidAmount;
+        }
+        if (paymentMethodId) {
+          data.paymentMethodId = paymentMethodId;
+        }
         await updateSale({ id: sale.id, data }).unwrap();
         const statusMsg = parsed.status === 'CANCELLED' && sale.status === 'COMPLETED'
           ? 'Sale cancelled and inventory restored'
@@ -176,6 +187,12 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
           notes: parsed.notes,
           items: parsed.items as CreateSaleItemDto[],
         };
+        if (paidAmount > 0) {
+          dto.paidAmount = paidAmount;
+        }
+        if (paymentMethodId) {
+          dto.paymentMethodId = paymentMethodId;
+        }
         await createSale(dto).unwrap();
         const statusMsg = parsed.status === 'COMPLETED' ? 'Sale created and inventory deducted' : 'Sale created successfully';
         handleApiSuccess(statusMsg);
@@ -225,6 +242,46 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
                   <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Paid Amount</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max={totalAmount}
+                value={paidAmount || ''}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Total: {Number(totalAmount).toFixed(2)} ETB
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Payment Method</label>
+              <Select
+                value={paymentMethodId || '__none__'}
+                onValueChange={(v) => setPaymentMethodId(v === '__none__' ? '' : v)}
+                disabled={paidAmount === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment method (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {paymentMethods
+                    .filter((pm: PaymentMethodEntity) => pm.isActive)
+                    .map((pm: PaymentMethodEntity) => (
+                      <SelectItem key={pm.id} value={pm.id}>
+                        {pm.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Required if paid amount is greater than 0
+              </p>
             </div>
           </div>
 

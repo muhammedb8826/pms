@@ -68,7 +68,26 @@ export const creditApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Credits'],
+      invalidatesTags: (result, error, data) => {
+        const tags = ['Credits'] as const;
+        // If credit is linked to a purchase, invalidate purchase cache
+        if (data.purchaseId) {
+          return [
+            ...tags,
+            'Purchases',
+            { type: 'Purchase' as const, id: data.purchaseId },
+          ];
+        }
+        // If credit is linked to a sale, invalidate sale cache
+        if (data.saleId) {
+          return [
+            ...tags,
+            'Sales',
+            { type: 'Sale' as const, id: data.saleId },
+          ];
+        }
+        return tags;
+      },
     }),
     updateCredit: builder.mutation<Credit, { id: string; data: UpdateCreditDto }>({
       query: ({ id, data }) => ({
@@ -76,10 +95,28 @@ export const creditApi = baseApi.injectEndpoints({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Credit', id },
-        'Credits',
-      ],
+      invalidatesTags: (result, error, { id }) => {
+        const baseTags = [
+          { type: 'Credit' as const, id },
+          'Credits',
+        ] as const;
+        // If result contains purchase or sale info, invalidate those caches
+        if (result?.purchase?.id) {
+          return [
+            ...baseTags,
+            'Purchases',
+            { type: 'Purchase' as const, id: result.purchase.id },
+          ];
+        }
+        if (result?.sale?.id) {
+          return [
+            ...baseTags,
+            'Sales',
+            { type: 'Sale' as const, id: result.sale.id },
+          ];
+        }
+        return baseTags;
+      },
     }),
     recordPayment: builder.mutation<Credit, { id: string; data: RecordPaymentDto }>({
       query: ({ id, data }) => ({
@@ -87,10 +124,29 @@ export const creditApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Credit', id },
-        'Credits',
-      ],
+      invalidatesTags: (result, error, { id }) => {
+        const baseTags = [
+          { type: 'Credit' as const, id },
+          'Credits',
+          'Payments', // Also invalidate payment history
+        ] as const;
+        // If result contains purchase or sale info, invalidate those caches
+        if (result?.purchase?.id) {
+          return [
+            ...baseTags,
+            'Purchases',
+            { type: 'Purchase' as const, id: result.purchase.id },
+          ];
+        }
+        if (result?.sale?.id) {
+          return [
+            ...baseTags,
+            'Sales',
+            { type: 'Sale' as const, id: result.sale.id },
+          ];
+        }
+        return baseTags;
+      },
     }),
     deleteCredit: builder.mutation<void, string>({
       query: (id) => ({

@@ -44,6 +44,16 @@ export interface Purchase {
   invoiceNo: string;
   date: string;
   totalAmount: number;
+  paidAmount?: number;
+  paymentMethod?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    isActive: boolean;
+    icon?: string | null;
+    sortOrder: number;
+  } | null;
+  paymentMethodId?: string | null;
   status: PurchaseStatus;
   notes?: string | null;
   items: PurchaseItem[];
@@ -80,6 +90,8 @@ export interface CreatePurchaseDto {
   status?: PurchaseStatus;
   notes?: string;
   items: CreatePurchaseItemDto[];
+  paidAmount?: number;
+  paymentMethodId?: string;
 }
 
 export interface UpdatePurchaseDto {
@@ -89,6 +101,8 @@ export interface UpdatePurchaseDto {
   status?: PurchaseStatus;
   notes?: string;
   items?: CreatePurchaseItemDto[];
+  paidAmount?: number;
+  paymentMethodId?: string;
 }
 
 export interface PaginatedPurchases {

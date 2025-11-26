@@ -8,10 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import { useUpdateProfileMutation, useChangePasswordMutation, useUploadAvatarMutation } from "@/features/auth/api/accountApi";
 import type { User as AuthUser } from "@/features/auth/types";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { handleApiError, handleApiSuccess } from "@/lib/utils/api-error-handler";
 
 
 function resolveProfileUrl(path?: string | null) {
@@ -218,13 +218,10 @@ export default function AccountPage() {
                 if (Object.keys(nextPartial).length > 0) {
                   updateUser(nextPartial);
                 }
-                toast.success("Profile updated");
+                handleApiSuccess("Profile updated");
               } catch (err) {
-                const message =
-                  (err as { data?: { message?: string | string[] } })?.data?.message ??
-                  "Failed to update profile";
-                setProfileError(Array.isArray(message) ? message.join(", ") : String(message));
-                toast.error("Failed to update profile");
+                const message = handleApiError(err, { defaultMessage: "Failed to update profile" });
+                setProfileError(message);
               }
             }}
           >
@@ -286,12 +283,9 @@ export default function AccountPage() {
                         
                         // Clear the file selection after successful upload
                         setProfileFile(null);
-                        toast.success("Avatar uploaded successfully");
+                        handleApiSuccess("Avatar uploaded successfully");
                       } catch (err) {
-                        const message =
-                          (err as { data?: { message?: string | string[] } })?.data?.message ??
-                          "Failed to upload avatar";
-                        toast.error(Array.isArray(message) ? message.join(", ") : String(message));
+                        handleApiError(err, { defaultMessage: "Failed to upload avatar" });
                       }
                     }}
                     disabled={uploadingAvatar}
@@ -429,14 +423,11 @@ export default function AccountPage() {
                     newPassword: passwordForm.newPassword,
                     confirmNewPassword: passwordForm.confirmNewPassword,
                   }).unwrap();
-                  toast.success("Password updated");
+                  handleApiSuccess("Password updated");
                   setPasswordForm({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
                 } catch (err) {
-                  const message =
-                    (err as { data?: { message?: string | string[] } })?.data?.message ??
-                    "Failed to change password";
-                  setPasswordError(Array.isArray(message) ? message.join(", ") : String(message));
-                  toast.error("Failed to change password");
+                  const message = handleApiError(err, { defaultMessage: "Failed to change password" });
+                  setPasswordError(message);
                 }
               }}
             >

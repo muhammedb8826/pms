@@ -70,6 +70,8 @@ export interface CreateSaleDto {
   status?: SaleStatus;
   notes?: string;
   items: CreateSaleItemDto[];
+  paidAmount?: number;
+  paymentMethodId?: string;
 }
 
 export interface UpdateSaleDto {
@@ -77,6 +79,8 @@ export interface UpdateSaleDto {
   status?: SaleStatus;
   notes?: string;
   items?: CreateSaleItemDto[]; // backend accepts full items array for recalculation
+  paidAmount?: number;
+  paymentMethodId?: string;
 }
 
 export interface PaginatedSales {

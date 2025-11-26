@@ -171,6 +171,11 @@ export const baseApi = createApi({
     'Credits',
     'Credit',
     'Dashboard',
+    'PaymentMethods',
+    'PaymentMethod',
+    'Payments',
+    'Payment',
+    'PaymentStatistics',
   ],
   endpoints: () => ({}),
 });

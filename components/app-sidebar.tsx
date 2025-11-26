@@ -3,17 +3,14 @@
 import * as React from "react"
 import {
   IconChartBar,
-  IconCreditCard,
   IconCurrencyDollar,
   IconDashboard,
-  IconFilePlus,
   IconFolder,
   IconHelp,
   IconInnerShadowTop,
   IconReport,
   IconSearch,
   IconSettings,
-  IconShoppingCart,
   IconUsers,
 } from "@tabler/icons-react"
 
@@ -80,6 +77,8 @@ const data = {
       url: "#",
       icon: IconCurrencyDollar,
       items: [
+        { title: "Payment History", url: "/payments" },
+        { title: "Payment Methods", url: "/payment-methods" },
         { title: "Credits", url: "/credits" },
         { title: "Commissions", url: "/commissions" },
       ],

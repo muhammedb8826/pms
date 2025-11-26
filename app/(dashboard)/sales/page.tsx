@@ -442,6 +442,11 @@ export default function SalesPage() {
           </AlertHeader>
           <AlertDesc>
             This action will permanently delete this sale record. This cannot be undone.
+            <br />
+            <br />
+            <span className="text-sm text-muted-foreground">
+              Note: Sales with payments cannot be deleted. Cancel the sale instead, or delete payments first via payment history.
+            </span>
           </AlertDesc>
           <AlertFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

@@ -4,9 +4,7 @@
  */
 
 import type {
-  SuccessResponse,
   ErrorResponse,
-  PaginatedResponse,
   PaginationMeta,
 } from '@/types/api-response';
 import {

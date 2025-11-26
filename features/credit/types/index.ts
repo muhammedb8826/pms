@@ -77,6 +77,7 @@ export interface CreateCreditDto {
   customerId?: string;
   purchaseId?: string;
   saleId?: string;
+  paymentMethodId?: string;
   dueDate?: string;
   notes?: string;
 }
@@ -91,7 +92,7 @@ export interface UpdateCreditDto {
 
 export interface RecordPaymentDto {
   amount: number;
-  paymentMethod?: PaymentMethod;
+  paymentMethodId?: string;
   referenceNumber?: string;
   paymentDate?: string;
   notes?: string;

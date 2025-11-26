@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { z } from 'zod';
-import type { Credit, RecordPaymentDto, PaymentMethod } from '@/features/credit/types';
-import { PaymentMethod as PaymentMethodEnum } from '@/features/credit/types';
+import type { Credit, RecordPaymentDto } from '@/features/credit/types';
 import { useRecordPayment } from '@/features/credit/hooks/useCredits';
+import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +13,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler'
 
 const schema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
-  paymentMethod: z.nativeEnum(PaymentMethodEnum).optional(),
+  paymentMethodId: z.string().optional(),
   referenceNumber: z.string().optional(),
   paymentDate: z.string().optional(),
   notes: z.string().optional(),
@@ -40,13 +40,14 @@ export function PaymentForm({
 }: PaymentFormProps) {
   const balanceAmount = parseFloat(credit.balanceAmount);
   const [amount, setAmount] = useState(balanceAmount);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethodEnum.CASH);
+  const [paymentMethodId, setPaymentMethodId] = useState<string>('');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const recordPaymentMutation = useRecordPayment();
+  const { paymentMethods } = usePaymentMethods();
 
   const isSubmitting = recordPaymentMutation.isPending;
   useEffect(() => {
@@ -60,7 +61,7 @@ export function PaymentForm({
 
     const parsed = schema.safeParse({ 
       amount, 
-      paymentMethod, 
+      paymentMethodId: paymentMethodId || undefined,
       referenceNumber: referenceNumber || undefined,
       paymentDate, 
       notes 
@@ -92,7 +93,7 @@ export function PaymentForm({
       onSuccess();
       // Reset form
       setAmount(balanceAmount);
-      setPaymentMethod(PaymentMethodEnum.CASH);
+      setPaymentMethodId('');
       setReferenceNumber('');
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setNotes('');
@@ -145,21 +146,25 @@ export function PaymentForm({
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="paymentMethod" className="block text-sm font-medium">
+        <label htmlFor="paymentMethodId" className="block text-sm font-medium">
           Payment Method
         </label>
-        <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select payment method" />
+        <Select
+          value={paymentMethodId || '__none__'}
+          onValueChange={(v) => setPaymentMethodId(v === '__none__' ? '' : v)}
+        >
+          <SelectTrigger id="paymentMethodId">
+            <SelectValue placeholder="Select payment method (optional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={PaymentMethodEnum.CASH}>Cash</SelectItem>
-            <SelectItem value={PaymentMethodEnum.BANK_TRANSFER}>Bank Transfer</SelectItem>
-            <SelectItem value={PaymentMethodEnum.CHECK}>Check</SelectItem>
-            <SelectItem value={PaymentMethodEnum.CREDIT_CARD}>Credit Card</SelectItem>
-            <SelectItem value={PaymentMethodEnum.DEBIT_CARD}>Debit Card</SelectItem>
-            <SelectItem value={PaymentMethodEnum.MOBILE_MONEY}>Mobile Money</SelectItem>
-            <SelectItem value={PaymentMethodEnum.OTHER}>Other</SelectItem>
+            <SelectItem value="__none__">None</SelectItem>
+            {paymentMethods
+              .filter((pm) => pm.isActive)
+              .map((pm) => (
+                <SelectItem key={pm.id} value={pm.id}>
+                  {pm.name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>

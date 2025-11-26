@@ -107,7 +107,7 @@ export default function CreditsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Credit | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [, setFormSubmitting] = useState(false);
 
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentCredit, setPaymentCredit] = useState<Credit | null>(null);
@@ -248,18 +248,39 @@ export default function CreditsPage() {
               <div className="text-xs text-muted-foreground mb-2">Payment Methods Used</div>
               <div className="flex flex-wrap gap-2">
                 {Array.from(
-                  new Set(credit.payments.map((p) => p.paymentMethod))
+                  new Set(
+                    credit.payments
+                      .map((p) => {
+                        // Handle both enum string and object formats
+                        if (typeof p.paymentMethod === 'string') {
+                          return p.paymentMethod;
+                        }
+                        if (p.paymentMethod && typeof p.paymentMethod === 'object' && 'name' in p.paymentMethod) {
+                          return (p.paymentMethod as { name: string }).name;
+                        }
+                        return null;
+                      })
+                      .filter((method): method is string => method !== null && method !== undefined)
+                  )
                 ).map((method) => {
-                  const methodPayments = credit.payments!.filter(
-                    (p) => p.paymentMethod === method
-                  );
+                  const methodPayments = credit.payments!.filter((p) => {
+                    const pm = p.paymentMethod;
+                    if (typeof pm === 'string') {
+                      return pm === method;
+                    }
+                    if (pm && typeof pm === 'object' && 'name' in pm) {
+                      return (pm as { name: string }).name === method;
+                    }
+                    return false;
+                  });
                   const methodTotal = methodPayments.reduce(
                     (sum, p) => sum + parseFloat(p.amount),
                     0
                   );
+                  const displayName = typeof method === 'string' ? method.replace(/_/g, " ") : method;
                   return (
                     <Badge key={method} variant="outline" className="text-xs">
-                      {method.replace(/_/g, " ")}: {currencyFormatter.format(methodTotal)} ({methodPayments.length})
+                      {displayName}: {currencyFormatter.format(methodTotal)} ({methodPayments.length})
                     </Badge>
                   );
                 })}
@@ -293,7 +314,16 @@ export default function CreditsPage() {
                           {currencyFormatter.format(parseFloat(payment.amount))}
                         </span>
                         <Badge variant="outline" className="text-xs">
-                          {payment.paymentMethod.replace(/_/g, " ")}
+                          {(() => {
+                            const pm = payment.paymentMethod;
+                            if (typeof pm === 'string') {
+                              return pm.replace(/_/g, " ");
+                            }
+                            if (pm && typeof pm === 'object' && 'name' in pm) {
+                              return (pm as { name: string }).name;
+                            }
+                            return 'Unknown';
+                          })()}
                         </Badge>
                       </div>
                       {payment.referenceNumber && (
@@ -394,7 +424,12 @@ export default function CreditsPage() {
           const credit = row.original;
           const canPay = credit.status !== CreditStatusEnum.PAID && parseFloat(credit.balanceAmount) > 0;
           return (
-            <div className="flex justify-end">
+            <div 
+              className="flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -405,11 +440,20 @@ export default function CreditsPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent 
+                  align="end" 
+                  className="w-48"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
@@ -444,7 +488,47 @@ export default function CreditsPage() {
                     className="text-destructive focus:text-destructive"
                     onSelect={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = event.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
                       setConfirmDeleteId(credit.id);
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = e.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
+                      setConfirmDeleteId(credit.id);
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Prevent row click early
+                      const target = e.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
                     }}
                   >
                     <IconTrash className="mr-2 size-4" />

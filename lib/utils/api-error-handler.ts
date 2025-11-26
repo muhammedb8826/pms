@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
-import type { ErrorResponse, ErrorCode } from '@/types/api-response';
-import { extractErrorMessage as extractFromResponse, extractErrorCode } from '@/types/api-response';
+import type { ErrorResponse } from '@/types/api-response';
+import { ErrorCode, extractErrorMessage as extractFromResponse, extractErrorCode } from '@/types/api-response';
 
 /**
  * RTK Query error structure
@@ -71,21 +71,29 @@ function getErrorMessageFromCode(code: number | string): string {
  * Handles both standardized and legacy API error formats
  */
 export function extractErrorMessage(err: unknown): string {
-  // First try the standardized extractor
-  const standardizedMessage = extractFromResponse(err);
-  if (standardizedMessage && standardizedMessage !== 'An error occurred') {
-    return standardizedMessage;
-  }
-
-  // Fallback to legacy format handling
   if (!err) return 'Operation failed';
 
   const errorObj = err as RTKQueryError;
   const errorData = errorObj.data;
 
+  // First, try to extract from error.data if it's a standardized error response
+  if (errorData && typeof errorData === 'object') {
+    const standardizedMessage = extractFromResponse(errorData);
+    if (standardizedMessage && standardizedMessage !== 'An error occurred') {
+      return standardizedMessage;
+    }
+  }
+
+  // Also try extracting from the error object itself (for direct error responses)
+  const directMessage = extractFromResponse(err);
+  if (directMessage && directMessage !== 'An error occurred') {
+    return directMessage;
+  }
+
+  // Fallback to legacy format handling
   // Try various error message paths (in order of priority)
   const candidates: (string | undefined)[] = [
-    // Priority 1: Standardized error response
+    // Priority 1: Standardized error response in data.message
     errorData && typeof errorData === 'object' && 'message' in errorData
       ? extractMessage((errorData as { message?: unknown }).message)
       : undefined,
@@ -137,7 +145,48 @@ export function handleApiError(
   const { defaultMessage = 'Operation failed', showToast = true, logError = true } = options || {};
 
   if (logError) {
-    console.error('API Error:', err);
+    // Improved error logging to handle empty objects and provide useful debugging info
+    try {
+      if (err === null || err === undefined) {
+        console.error('API Error: null or undefined');
+      } else if (typeof err === 'object') {
+        const errorObj = err as RTKQueryError;
+        const keys = Object.keys(err);
+        
+        // Check if it's an empty object or has useful properties
+        if (keys.length === 0 && !errorObj.data && !errorObj.status && !errorObj.message) {
+          console.error('API Error: Empty error object. This may indicate a serialization issue.');
+        } else {
+          // Log structured error information
+          const errorInfo: Record<string, unknown> = {
+            type: err.constructor?.name || 'Unknown',
+            keys: keys.length > 0 ? keys : 'No enumerable keys',
+          };
+          
+          if (errorObj.status !== undefined) errorInfo.status = errorObj.status;
+          if (errorObj.message) errorInfo.message = errorObj.message;
+          if (errorObj.data !== undefined) {
+            // Try to extract useful info from data without deep serialization
+            if (typeof errorObj.data === 'object' && errorObj.data !== null) {
+              const dataKeys = Object.keys(errorObj.data);
+              errorInfo.dataKeys = dataKeys.length > 0 ? dataKeys : 'Empty data object';
+              if ('message' in errorObj.data) {
+                errorInfo.dataMessage = (errorObj.data as { message?: unknown }).message;
+              }
+            } else {
+              errorInfo.data = errorObj.data;
+            }
+          }
+          
+          console.error('API Error:', errorInfo);
+        }
+      } else {
+        console.error('API Error:', err);
+      }
+    } catch (logErr) {
+      // Fallback if logging itself fails
+      console.error('API Error: [Unable to log error details]', logErr);
+    }
   }
 
   const errorMessage = err ? extractErrorMessage(err) : defaultMessage;

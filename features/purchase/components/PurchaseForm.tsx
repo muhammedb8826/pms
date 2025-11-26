@@ -7,6 +7,7 @@ import { useCreatePurchase, useUpdatePurchase } from '@/features/purchase/hooks/
 import { useAllSuppliers } from '@/features/supplier/hooks/useSuppliers';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
 import { useAllUnitOfMeasures } from '@/features/uom/hooks/useUnitOfMeasures';
+import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import type { Supplier } from '@/features/supplier/types';
 import type { Product } from '@/features/product/types';
 import type { UnitOfMeasure } from '@/features/uom/types';
@@ -54,6 +55,8 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
   const [date, setDate] = useState(purchase?.date ?? new Date().toISOString().split('T')[0]);
   const [status, setStatus] = useState<PurchaseStatus>(purchase?.status ?? 'PENDING');
   const [notes, setNotes] = useState(purchase?.notes ?? '');
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [paymentMethodId, setPaymentMethodId] = useState<string>('');
   // Initialize with at least one empty item if creating new purchase
   const [items, setItems] = useState<CreatePurchaseItemDto[]>(
     purchase?.items && purchase.items.length > 0
@@ -108,6 +111,8 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
     return [] as UnitOfMeasure[];
   }, [allUomsQuery.data]);
 
+  const { paymentMethods } = usePaymentMethods();
+
   useEffect(() => {
     if (purchase) {
       setSupplierId(purchase.supplier?.id ?? '');
@@ -115,6 +120,8 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
       setDate(purchase.date ?? new Date().toISOString().split('T')[0]);
       setStatus(purchase.status ?? 'PENDING');
       setNotes(purchase.notes ?? '');
+      setPaidAmount(purchase.paidAmount ?? 0);
+      setPaymentMethodId(purchase.paymentMethodId ?? '');
       
       // Always update items when purchase changes
       // Check if purchase has items array (even if empty)
@@ -316,6 +323,12 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
       if (parsed.data.notes && parsed.data.notes.trim() !== '') {
         data.notes = parsed.data.notes;
       }
+      if (paidAmount > 0) {
+        data.paidAmount = paidAmount;
+      }
+      if (paymentMethodId) {
+        data.paymentMethodId = paymentMethodId;
+      }
       
       if (purchase) {
         // For updates, omit items to avoid backend requiring purchaseId on nested items
@@ -326,6 +339,13 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
         };
         if (data.status) updateData.status = data.status;
         if (data.notes) updateData.notes = data.notes;
+        // Always include paidAmount and paymentMethodId in updates if they have values
+        if (paidAmount !== undefined && paidAmount !== null) {
+          updateData.paidAmount = paidAmount;
+        }
+        if (paymentMethodId) {
+          updateData.paymentMethodId = paymentMethodId;
+        }
         
         // mutateAsync will throw if the request fails
         await updateMutation.mutateAsync({ id: purchase.id, dto: updateData });
@@ -597,6 +617,48 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
                   <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="paidAmount" className="block text-sm font-medium">Paid Amount</label>
+              <Input
+                id="paidAmount"
+                type="number"
+                step="0.01"
+                min="0"
+                max={totalAmount}
+                value={paidAmount || ''}
+                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                disabled={isCompleted || isCancelled}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Total: {Number(totalAmount).toFixed(2)} ETB
+              </p>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="paymentMethodId" className="block text-sm font-medium">Payment Method</label>
+              <Select
+                value={paymentMethodId || '__none__'}
+                onValueChange={(v) => setPaymentMethodId(v === '__none__' ? '' : v)}
+                disabled={isCompleted || isCancelled || paidAmount === 0}
+              >
+                <SelectTrigger id="paymentMethodId">
+                  <SelectValue placeholder="Select payment method (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {paymentMethods
+                    .filter((pm) => pm.isActive)
+                    .map((pm) => (
+                      <SelectItem key={pm.id} value={pm.id}>
+                        {pm.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Required if paid amount is greater than 0
+              </p>
             </div>
           </div>
           <div className="space-y-1">

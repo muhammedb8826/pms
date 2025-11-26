@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from 'sonner';
 import { IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
+import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteUnitOfMeasure, useUnitOfMeasures, useUpdateUnitOfMeasure } from '@/features/uom/hooks/useUnitOfMeasures';
@@ -33,10 +33,9 @@ export default function UnitOfMeasuresPage() {
     try {
       await deleteMutation.mutateAsync(id);
       refetch();
-      toast.success('Unit of measure deleted');
+      handleApiSuccess('Unit of measure deleted');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete unit of measure';
-      toast.error(message);
+      handleApiError(err, { defaultMessage: 'Failed to delete unit of measure' });
     }
   }
 
@@ -49,7 +48,7 @@ export default function UnitOfMeasuresPage() {
     try {
       if (editing.id) {
         await updateMutation.mutateAsync({ id: editing.id, dto: { name: editing.name.trim(), abbreviation: editing.abbreviation, conversionRate: editing.conversionRate || '1' } });
-        toast.success('Unit of measure updated');
+        handleApiSuccess('Unit of measure updated');
       } else {
         // This page doesn't support creating UOMs without unitCategoryId
         // Users should use the Settings > Units of Measure page instead

@@ -9,10 +9,12 @@ import { useGetAllSuppliersQuery } from '@/features/supplier/api/supplierApi';
 import { useGetAllCustomersQuery } from '@/features/customer/api/customerApi';
 import { useGetPurchasesQuery } from '@/features/purchase/api/purchaseApi';
 import { useGetSalesQuery } from '@/features/sale/api/saleApi';
+import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import type { Supplier } from '@/features/supplier/types';
 import type { Customer } from '@/features/customer/types';
 import type { Purchase } from '@/features/purchase/types';
 import type { Sale } from '@/features/sale/types';
+import type { PaymentMethod as PaymentMethodEntity } from '@/features/payment-method/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,6 +39,14 @@ const createSchema = z.object({
 }, {
   message: 'Supplier is required for PAYABLE credits, Customer is required for RECEIVABLE credits',
   path: ['supplierId'],
+}).refine((data) => {
+  if (data.type === CreditTypeEnum.PAYABLE) {
+    return !!data.purchaseId;
+  }
+  return true;
+}, {
+  message: 'Purchase ID is required for payable credits',
+  path: ['purchaseId'],
 }).refine((data) => {
   if (data.paidAmount !== undefined && data.totalAmount !== undefined) {
     return data.paidAmount <= data.totalAmount;
@@ -81,6 +91,7 @@ export function CreditForm({
   const [customerId, setCustomerId] = useState(credit?.customer?.id || '');
   const [purchaseId, setPurchaseId] = useState(credit?.purchase?.id || '');
   const [saleId, setSaleId] = useState(credit?.sale?.id || '');
+  const [paymentMethodId, setPaymentMethodId] = useState<string>('');
   const [dueDate, setDueDate] = useState(
     credit?.dueDate ? credit.dueDate.split('T')[0] : ''
   );
@@ -155,6 +166,7 @@ export function CreditForm({
 
   const createMutation = useCreateCredit();
   const updateMutation = useUpdateCredit();
+  const { paymentMethods } = usePaymentMethods({ includeInactive: false });
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
   useEffect(() => {
@@ -206,8 +218,9 @@ export function CreditForm({
         paidAmount: paidAmount > 0 ? paidAmount : undefined,
         supplierId: type === CreditTypeEnum.PAYABLE ? supplierId : undefined,
         customerId: type === CreditTypeEnum.RECEIVABLE ? customerId : undefined,
-        purchaseId: purchaseId || undefined,
-        saleId: saleId || undefined,
+        purchaseId: type === CreditTypeEnum.PAYABLE ? purchaseId : undefined,
+        saleId: type === CreditTypeEnum.RECEIVABLE ? saleId : undefined,
+        paymentMethodId: paymentMethodId || undefined,
         dueDate: dueDate || undefined,
         notes: notes || undefined,
       };
@@ -236,6 +249,7 @@ export function CreditForm({
         setCustomerId('');
         setPurchaseId('');
         setSaleId('');
+        setPaymentMethodId('');
         setDueDate('');
         setNotes('');
       } catch (err: unknown) {
@@ -249,6 +263,28 @@ export function CreditForm({
   }
 
   const isPayable = type === CreditTypeEnum.PAYABLE;
+
+  // Auto-populate total amount from selected purchase or sale
+  useEffect(() => {
+    if (credit) return; // Don't auto-populate when editing existing credit
+    
+    if (isPayable && purchaseId) {
+      const selectedPurchase = purchases.find((p) => p.id === purchaseId);
+      if (selectedPurchase) {
+        setTotalAmount(selectedPurchase.totalAmount);
+      }
+    } else if (!isPayable && saleId) {
+      const selectedSale = sales.find((s) => s.id === saleId);
+      if (selectedSale) {
+        setTotalAmount(typeof selectedSale.totalAmount === 'string' 
+          ? parseFloat(selectedSale.totalAmount) 
+          : selectedSale.totalAmount);
+      }
+    } else if (!purchaseId && !saleId) {
+      // Reset to 0 if no purchase/sale is selected
+      setTotalAmount(0);
+    }
+  }, [purchaseId, saleId, isPayable, purchases, sales, credit]);
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
@@ -318,14 +354,13 @@ export function CreditForm({
             {isPayable && supplierId && (
               <div className="space-y-1">
                 <label htmlFor="purchaseId" className="block text-sm font-medium">
-                  Purchase (Optional)
+                  Purchase *
                 </label>
-                <Select value={purchaseId || '__none__'} onValueChange={(v) => setPurchaseId(v === '__none__' ? '' : (v || ''))}>
-                  <SelectTrigger>
+                <Select value={purchaseId || ''} onValueChange={(v) => setPurchaseId(v || '')}>
+                  <SelectTrigger aria-invalid={Boolean(errors.purchaseId)}>
                     <SelectValue placeholder="Select purchase" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
                     {purchases.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.invoiceNo || p.id}
@@ -333,6 +368,7 @@ export function CreditForm({
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.purchaseId && <p className="text-xs text-red-600">{errors.purchaseId}</p>}
               </div>
             )}
 
@@ -370,28 +406,64 @@ export function CreditForm({
             min="0"
             value={totalAmount || ''}
             onChange={(e) => setTotalAmount(parseFloat(e.target.value) || 0)}
-            disabled={!!credit}
+            disabled={!!credit || (isPayable && !!purchaseId) || (!isPayable && !!saleId)}
             aria-invalid={Boolean(errors.totalAmount)}
+            readOnly={(isPayable && !!purchaseId) || (!isPayable && !!saleId)}
+            className={((isPayable && !!purchaseId) || (!isPayable && !!saleId)) ? 'bg-muted cursor-not-allowed' : ''}
           />
+          {((isPayable && !!purchaseId) || (!isPayable && !!saleId)) && (
+            <p className="text-xs text-muted-foreground">
+              {isPayable ? 'Total amount is automatically set from the selected purchase' : 'Total amount is automatically set from the selected sale'}
+            </p>
+          )}
           {errors.totalAmount && <p className="text-xs text-red-600">{errors.totalAmount}</p>}
         </div>
 
         {!credit && (
-          <div className="space-y-1">
-            <label htmlFor="paidAmount" className="block text-sm font-medium">
-              Paid Amount
-            </label>
-            <Input
-              id="paidAmount"
-              type="number"
-              step="0.01"
-              min="0"
-              value={paidAmount || ''}
-              onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-              aria-invalid={Boolean(errors.paidAmount)}
-            />
-            {errors.paidAmount && <p className="text-xs text-red-600">{errors.paidAmount}</p>}
-          </div>
+          <>
+            <div className="space-y-1">
+              <label htmlFor="paidAmount" className="block text-sm font-medium">
+                Paid Amount
+              </label>
+              <Input
+                id="paidAmount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={paidAmount || ''}
+                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                aria-invalid={Boolean(errors.paidAmount)}
+              />
+              {errors.paidAmount && <p className="text-xs text-red-600">{errors.paidAmount}</p>}
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="paymentMethodId" className="block text-sm font-medium">
+                Payment Method
+              </label>
+              <Select
+                value={paymentMethodId || '__none__'}
+                onValueChange={(v) => setPaymentMethodId(v === '__none__' ? '' : v)}
+                disabled={paidAmount === 0}
+              >
+                <SelectTrigger id="paymentMethodId">
+                  <SelectValue placeholder="Select payment method (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No payment method</SelectItem>
+                  {paymentMethods.map((pm: PaymentMethodEntity) => (
+                    <SelectItem key={pm.id} value={pm.id}>
+                      {pm.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {paidAmount === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Payment method can be selected when paid amount is greater than 0
+                </p>
+              )}
+            </div>
+          </>
         )}
 
         <div className="space-y-1">
