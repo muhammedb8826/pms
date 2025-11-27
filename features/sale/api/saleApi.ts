@@ -8,6 +8,16 @@ import type {
   UpdateSaleItemDto,
 } from '@/features/sale/types';
 
+function unwrapResponse<T>(response: { data?: T } | T): T {
+  if (response && typeof response === 'object' && 'data' in response) {
+    const data = (response as { data?: T }).data;
+    if (data !== undefined) {
+      return data;
+    }
+  }
+  return response as T;
+}
+
 type GetSalesParams = {
   page?: number;
   limit?: number;
@@ -30,10 +40,12 @@ export const saleApi = baseApi.injectEndpoints({
           params: queryParams,
         };
       },
+      transformResponse: unwrapResponse<PaginatedSales>,
       providesTags: ['Sales'],
     }),
     getSale: builder.query<Sale, string>({
       query: (id) => `/sales/${id}`,
+      transformResponse: unwrapResponse<Sale>,
       providesTags: (result, error, id) => [{ type: 'Sale', id }, 'Sales'],
     }),
     createSale: builder.mutation<Sale, CreateSaleDto>({

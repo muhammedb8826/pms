@@ -9,6 +9,16 @@ import type {
   UpdatePurchaseItemDto,
 } from '@/features/purchase/types';
 
+function unwrapResponse<T>(response: { data?: T } | T): T {
+  if (response && typeof response === 'object' && 'data' in response) {
+    const data = (response as { data?: T }).data;
+    if (data !== undefined) {
+      return data;
+    }
+  }
+  return response as T;
+}
+
 export const purchaseApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getPurchases: builder.query<
@@ -35,10 +45,12 @@ export const purchaseApi = baseApi.injectEndpoints({
         if (sortOrder) query.set('sortOrder', sortOrder);
         return `/purchases?${query.toString()}`;
       },
+      transformResponse: unwrapResponse<PaginatedPurchases>,
       providesTags: ['Purchases'],
     }),
     getPurchase: builder.query<Purchase, string>({
       query: (id) => `/purchases/${id}`,
+      transformResponse: unwrapResponse<Purchase>,
       providesTags: (result, error, id) => [{ type: 'Purchase', id }],
     }),
     createPurchase: builder.mutation<Purchase, CreatePurchaseDto>({

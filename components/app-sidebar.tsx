@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  IconBell,
   IconChartBar,
   IconCurrencyDollar,
   IconDashboard,
@@ -133,6 +134,11 @@ const data = {
   //   },
   // ],
   navSecondary: [
+    {
+      title: "Notifications",
+      url: "/notifications",
+      icon: IconBell,
+    },
     {
       title: "Settings",
       url: "#",

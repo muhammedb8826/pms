@@ -9,6 +9,16 @@ import type {
   CreditFilters,
 } from '@/features/credit/types';
 
+function unwrapResponse<T>(response: { data?: T } | T): T {
+  if (response && typeof response === 'object' && 'data' in response) {
+    const data = (response as { data?: T }).data;
+    if (data !== undefined) {
+      return data;
+    }
+  }
+  return response as T;
+}
+
 export const creditApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getCredits: builder.query<PaginatedCredits, CreditFilters | undefined>({
@@ -44,6 +54,7 @@ export const creditApi = baseApi.injectEndpoints({
         if (sortOrder) query.set('sortOrder', sortOrder);
         return `/credits?${query.toString()}`;
       },
+      transformResponse: unwrapResponse<PaginatedCredits>,
       providesTags: ['Credits'],
     }),
     getCreditSummary: builder.query<
@@ -56,10 +67,12 @@ export const creditApi = baseApi.injectEndpoints({
         const queryString = query.toString();
         return `/credits/summary${queryString ? `?${queryString}` : ''}`;
       },
+      transformResponse: unwrapResponse<CreditSummary>,
       providesTags: ['Credits'],
     }),
     getCredit: builder.query<Credit, string>({
       query: (id) => `/credits/${id}`,
+      transformResponse: unwrapResponse<Credit>,
       providesTags: (result, error, id) => [{ type: 'Credit', id }],
     }),
     createCredit: builder.mutation<Credit, CreateCreditDto>({

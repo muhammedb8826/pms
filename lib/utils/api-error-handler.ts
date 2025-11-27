@@ -178,7 +178,8 @@ export function handleApiError(
             }
           }
           
-          console.error('API Error:', errorInfo);
+          console.error('API Error:', err);
+          console.error('API Error details:', errorInfo);
         }
       } else {
         console.error('API Error:', err);
