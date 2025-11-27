@@ -40,10 +40,20 @@ export interface SaleSummary {
   invoiceNo?: string;
 }
 
+export interface PaymentMethodSummary {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  isActive?: boolean;
+  icon?: string | null;
+  sortOrder?: number | null;
+}
+
 export interface Payment {
   id: string;
   amount: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod | PaymentMethodSummary | null;
+  paymentMethodId?: string | null;
   referenceNumber?: string | null;
   paymentDate: string;
   notes?: string | null;

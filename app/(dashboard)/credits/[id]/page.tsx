@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useGetCreditQuery } from "@/features/credit/api/creditApi";
-import { CreditType } from "@/features/credit/types";
+import { CreditType, type Payment } from "@/features/credit/types";
 import { handleApiError } from "@/lib/utils/api-error-handler";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -37,6 +37,27 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+type CreditPayment = Payment;
+
+function formatPaymentMethod(method: CreditPayment["paymentMethod"]): string {
+  if (!method) return "—";
+  if (typeof method === "string") {
+    return method.replace(/_/g, " ");
+  }
+  if (typeof method === "object") {
+    if ("name" in method && typeof method.name === "string" && method.name.trim() !== "") {
+      return method.name;
+    }
+    if ("description" in method && typeof method.description === "string" && method.description.trim() !== "") {
+      return method.description;
+    }
+    if ("id" in method && typeof method.id === "string") {
+      return method.id;
+    }
+  }
+  return "—";
+}
 
 function InfoRow({
   label,
@@ -275,7 +296,7 @@ export default function CreditDetailsPage() {
                       {currencyFormatter.format(Number(payment.amount ?? 0))}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {payment.paymentMethod ?? "—"}
+                      {formatPaymentMethod(payment.paymentMethod)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {payment.referenceNumber ?? "—"}
