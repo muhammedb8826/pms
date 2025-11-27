@@ -64,6 +64,7 @@ export interface Credit {
   purchase: PurchaseSummary | null;
   sale: SaleSummary | null;
   notes?: string | null;
+  metadata?: Record<string, unknown> | null;
   payments?: Payment[];
   createdAt: string;
   updatedAt: string;
@@ -88,6 +89,7 @@ export interface UpdateCreditDto {
   dueDate?: string;
   paidDate?: string;
   notes?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface RecordPaymentDto {
