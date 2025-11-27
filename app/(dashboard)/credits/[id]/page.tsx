@@ -107,6 +107,10 @@ export default function CreditDetailsPage() {
   const totalAmount = Number(credit.totalAmount ?? 0);
   const paidAmount = Number(credit.paidAmount ?? 0);
   const balanceAmount = Number(credit.balanceAmount ?? 0);
+  const creditMetadata =
+    credit && typeof credit === "object" && "metadata" in credit
+      ? (credit as { metadata?: Record<string, unknown> | null }).metadata ?? null
+      : null;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -221,13 +225,13 @@ export default function CreditDetailsPage() {
         </div>
       </div>
 
-      {credit.metadata && (
+      {creditMetadata && (
         <div className="rounded-xl border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
             Metadata
           </h2>
           <pre className="max-h-64 overflow-auto rounded bg-muted/30 p-3 text-xs">
-            {JSON.stringify(credit.metadata, null, 2)}
+            {JSON.stringify(creditMetadata, null, 2)}
           </pre>
         </div>
       )}
