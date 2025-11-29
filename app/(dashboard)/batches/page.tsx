@@ -16,7 +16,6 @@ import {
   AlertDialogFooter as AlertFooter,
   AlertDialogHeader as AlertHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { FormDialog } from "@/components/form-dialog";
 import {
@@ -53,6 +52,7 @@ export default function BatchesPage() {
   const [expiredOnly, setExpiredOnly] = useState<"all" | "true" | "false">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -103,6 +103,7 @@ export default function BatchesPage() {
           handleApiError((result as { error?: unknown }).error, { defaultMessage: "Failed to delete batch" });
           return;
         }
+        setConfirmDeleteId(null);
         refetch();
         handleApiSuccess("Batch deleted successfully");
       } catch (err) {
@@ -205,7 +206,12 @@ export default function BatchesPage() {
         cell: ({ row }) => {
           const batch = row.original;
           return (
-            <div className="flex justify-end">
+            <div 
+              className="flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -216,11 +222,20 @@ export default function BatchesPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent 
+                  align="end" 
+                  className="w-48"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
@@ -234,31 +249,42 @@ export default function BatchesPage() {
                     Edit batch
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem
-                        onSelect={(event) => event.preventDefault()}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        Delete batch
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertHeader>
-                        <AlertDialogTitle>Delete batch?</AlertDialogTitle>
-                      </AlertHeader>
-                      <AlertDesc>
-                        This action will permanently delete{" "}
-                        <span className="font-medium">{batch.batchNumber}</span>. This cannot be undone.
-                      </AlertDesc>
-                      <AlertFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(batch.id)} disabled={deleteMutation.isPending}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = event.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
+                      setConfirmDeleteId(batch.id);
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = e.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
+                      setConfirmDeleteId(batch.id);
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    Delete batch
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -266,7 +292,7 @@ export default function BatchesPage() {
         },
       },
     ];
-  }, [deleteMutation.isPending, handleDelete, handleEdit]);
+  }, [handleEdit]);
 
   const renderDetails = useCallback((batch: Batch) => {
     const expiry = new Date(batch.expiryDate);
@@ -494,6 +520,45 @@ export default function BatchesPage() {
           }}
         />
       </FormDialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDeleteId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertHeader>
+            <AlertDialogTitle>Delete batch?</AlertDialogTitle>
+          </AlertHeader>
+          <AlertDesc>
+            This action will permanently delete{" "}
+            {confirmDeleteId && batches.find((b) => b.id === confirmDeleteId) ? (
+              <span className="font-medium">{batches.find((b) => b.id === confirmDeleteId)?.batchNumber}</span>
+            ) : (
+              "this batch"
+            )}
+            . This cannot be undone.
+          </AlertDesc>
+          <AlertFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteId) {
+                  void handleDelete(confirmDeleteId);
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

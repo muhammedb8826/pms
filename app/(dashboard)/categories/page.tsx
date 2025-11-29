@@ -190,7 +190,12 @@ export default function CategoriesPage() {
         cell: ({ row }) => {
           const category = row.original;
           return (
-            <div className="flex justify-end">
+            <div 
+              className="flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -201,11 +206,20 @@ export default function CategoriesPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent 
+                  align="end" 
+                  className="w-48"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
@@ -220,11 +234,38 @@ export default function CategoriesPage() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
                     onSelect={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = event.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
                       setConfirmDeleteId(category.id);
                     }}
-                    className="text-destructive focus:text-destructive"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = e.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
+                      setConfirmDeleteId(category.id);
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     Delete category
                   </DropdownMenuItem>

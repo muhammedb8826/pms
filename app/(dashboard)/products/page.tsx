@@ -34,7 +34,6 @@ import {
   AlertDialogFooter as AlertFooter,
   AlertDialogHeader as AlertHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { DashboardDataTable } from '@/components/dashboard-data-table';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
@@ -81,6 +80,7 @@ export default function ProductsPage() {
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
   const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const { products, total, loading, error, refetch } = useProducts(page, pageSize, {
     search,
@@ -109,6 +109,7 @@ export default function ProductsPage() {
           handleApiError(result.error, { defaultMessage: 'Failed to delete product' });
           return;
         }
+        setConfirmDeleteId(null);
         refetch();
         handleApiSuccess('Product deleted successfully');
       } catch (err) {
@@ -205,7 +206,12 @@ export default function ProductsPage() {
         cell: ({ row }) => {
           const product = row.original;
           return (
-            <div className="flex justify-end">
+            <div 
+              className="flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -216,11 +222,20 @@ export default function ProductsPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent 
+                  align="end" 
+                  className="w-48"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
@@ -234,31 +249,42 @@ export default function ProductsPage() {
                     Edit product
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem
-                        onSelect={(event) => event.preventDefault()}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        Delete product
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertHeader>
-                        <AlertDialogTitle>Delete product?</AlertDialogTitle>
-                      </AlertHeader>
-                      <AlertDesc>
-                        This action will permanently delete <span className="font-medium">{product.name}</span>. This
-                        cannot be undone.
-                      </AlertDesc>
-                      <AlertFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(product.id)} disabled={deleteMutation.isPending}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = event.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
+                      setConfirmDeleteId(product.id);
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = e.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
+                      setConfirmDeleteId(product.id);
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    Delete product
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -266,7 +292,7 @@ export default function ProductsPage() {
         },
       },
     ];
-  }, [handleEdit, handleDelete, deleteMutation.isPending]);
+  }, [handleEdit]);
 
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -564,6 +590,45 @@ export default function ProductsPage() {
           )}
           <AlertFooter>
             <AlertDialogAction onClick={() => setShowImportDialog(false)}>Close</AlertDialogAction>
+          </AlertFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDeleteId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertHeader>
+            <AlertDialogTitle>Delete product?</AlertDialogTitle>
+          </AlertHeader>
+          <AlertDesc>
+            This action will permanently delete{' '}
+            {confirmDeleteId && products.find((p) => p.id === confirmDeleteId) ? (
+              <span className="font-medium">{products.find((p) => p.id === confirmDeleteId)?.name}</span>
+            ) : (
+              'this product'
+            )}
+            . This cannot be undone.
+          </AlertDesc>
+          <AlertFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteId) {
+                  void handleDelete(confirmDeleteId);
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -186,7 +186,12 @@ export default function ManufacturersPage() {
         cell: ({ row }) => {
           const manufacturer = row.original;
           return (
-            <div className="flex justify-end">
+            <div 
+              className="flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -197,11 +202,20 @@ export default function ManufacturersPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     <IconDotsVertical />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent 
+                  align="end" 
+                  className="w-48"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
@@ -216,11 +230,38 @@ export default function ManufacturersPage() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
                     onSelect={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = event.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
                       setConfirmDeleteId(manufacturer.id);
                     }}
-                    className="text-destructive focus:text-destructive"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Prevent row click by temporarily disabling pointer events on the row
+                      const target = e.target as HTMLElement;
+                      const row = target.closest('tr');
+                      if (row) {
+                        (row as HTMLElement).style.pointerEvents = 'none';
+                        setTimeout(() => {
+                          (row as HTMLElement).style.pointerEvents = '';
+                        }, 100);
+                      }
+                      setConfirmDeleteId(manufacturer.id);
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     Delete manufacturer
                   </DropdownMenuItem>
@@ -436,6 +477,7 @@ export default function ManufacturersPage() {
                 }
               }}
               disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
