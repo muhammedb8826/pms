@@ -7,7 +7,7 @@ import type { CreateSaleDto, CreateSaleItemDto, Sale, SaleStatus, UpdateSaleDto 
 import { useCreateSale, useUpdateSale } from '@/features/sale/hooks/useSales';
 import { useAllCustomers } from '@/features/customer/hooks/useCustomers';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
-import { useBatchesByProduct } from '@/features/batch/hooks/useBatches';
+import { useAvailableBatchesForProduct } from '@/features/batch/hooks/useBatches';
 import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -363,17 +363,8 @@ function ItemRow({
   onChange: <T extends keyof ItemState>(index: number, field: T, value: ItemState[T]) => void;
   onRemove: (index: number) => void;
 }) {
-  const { data: batchesData } = useBatchesByProduct(value.productId || undefined);
-  const batches = useMemo(() => {
-    type WR<T> = { success: boolean; data: T };
-    const d = batchesData as BatchType[] | WR<BatchType[]> | undefined;
-    let allBatches: BatchType[] = [];
-    if (!d) return [] as BatchType[];
-    if (Array.isArray(d)) allBatches = d;
-    else if ('success' in d && d.success && Array.isArray(d.data)) allBatches = d.data;
-    // Filter batches with quantity > 0
-    return allBatches.filter((b) => (b.quantity ?? 0) > 0);
-  }, [batchesData]);
+  // Use FEFO endpoint to get available batches (ACTIVE, not recalled, not quarantined, quantity > 0, not expired)
+  const { batches } = useAvailableBatchesForProduct(value.productId || undefined);
 
   const selectedBatch = useMemo(() => {
     return batches.find((b) => b.id === value.batchId);

@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { DashboardDataTable } from "@/components/dashboard-data-table";
 import { useBatches, useDeleteBatch } from "@/features/batch/hooks/useBatches";
 import type { Batch } from "@/features/batch/types";
+import { BatchStatus } from "@/features/batch/types";
 import { useAllProducts } from "@/features/product/hooks/useProducts";
 import type { Product } from "@/features/product/types";
 import { useAllSuppliers } from "@/features/supplier/hooks/useSuppliers";
@@ -152,21 +153,44 @@ export default function BatchesPage() {
         accessorKey: "expiryDate",
         header: "Expiry",
         cell: ({ row }) => {
-          const expiry = new Date(row.original.expiryDate);
+          const batch = row.original;
+          const expiry = new Date(batch.expiryDate);
           const isValid = !Number.isNaN(expiry.getTime());
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const expired = isValid && expiry < today;
+          const status = batch.status || BatchStatus.ACTIVE;
+          const isExpired = status === BatchStatus.EXPIRED;
+          const isRecalled = batch.recalled || status === BatchStatus.RECALLED;
+          const isQuarantined = batch.quarantined || status === BatchStatus.QUARANTINED;
+          
           return (
-            <div className="flex items-center justify-between gap-2">
-              <span className={`text-sm ${expired ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
-                {isValid ? dateFormatter.format(expiry) : "—"}
-              </span>
-              {isValid ? (
-                <Badge variant={expired ? "destructive" : "outline"} className="text-xs uppercase">
-                  {expired ? "Expired" : "Active"}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`text-sm ${isExpired ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
+                  {isValid ? dateFormatter.format(expiry) : "—"}
+                </span>
+                <Badge 
+                  variant={
+                    isExpired ? "destructive" : 
+                    isRecalled ? "destructive" :
+                    isQuarantined ? "secondary" :
+                    status === BatchStatus.DAMAGED ? "secondary" :
+                    status === BatchStatus.RETURNED ? "outline" :
+                    "outline"
+                  } 
+                  className="text-xs uppercase"
+                >
+                  {status}
                 </Badge>
-              ) : null}
+              </div>
+              {(isRecalled || isQuarantined) && (
+                <div className="flex gap-2 text-xs">
+                  {isRecalled && (
+                    <Badge variant="destructive" className="text-xs">Recalled</Badge>
+                  )}
+                  {isQuarantined && (
+                    <Badge variant="secondary" className="text-xs">Quarantined</Badge>
+                  )}
+                </div>
+              )}
             </div>
           );
         },
@@ -297,9 +321,12 @@ export default function BatchesPage() {
   const renderDetails = useCallback((batch: Batch) => {
     const expiry = new Date(batch.expiryDate);
     const isValid = !Number.isNaN(expiry.getTime());
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expired = isValid && expiry < today;
+    const manufacturingDate = batch.manufacturingDate ? new Date(batch.manufacturingDate) : null;
+    const manufacturingDateValid = manufacturingDate && !Number.isNaN(manufacturingDate.getTime());
+    const status = batch.status || BatchStatus.ACTIVE;
+    const isExpired = status === BatchStatus.EXPIRED;
+    const isRecalled = batch.recalled || status === BatchStatus.RECALLED;
+    const isQuarantined = batch.quarantined || status === BatchStatus.QUARANTINED;
 
     return (
       <div className="space-y-6">
@@ -343,26 +370,99 @@ export default function BatchesPage() {
               </div>
             </div>
             <div>
+              <div className="text-xs text-muted-foreground">Status</div>
+              <div>
+                <Badge 
+                  variant={
+                    isExpired ? "destructive" : 
+                    isRecalled ? "destructive" :
+                    isQuarantined ? "secondary" :
+                    status === BatchStatus.DAMAGED ? "secondary" :
+                    status === BatchStatus.RETURNED ? "outline" :
+                    "outline"
+                  } 
+                  className="text-xs uppercase"
+                >
+                  {status}
+                </Badge>
+              </div>
+            </div>
+            {manufacturingDateValid && (
+              <div>
+                <div className="text-xs text-muted-foreground">Manufacturing date</div>
+                <div className="font-medium text-foreground">{dateFormatter.format(manufacturingDate)}</div>
+              </div>
+            )}
+            <div>
               <div className="text-xs text-muted-foreground">Created</div>
               <div className="font-medium text-foreground">
                 {batch.createdAt ? new Date(batch.createdAt).toLocaleString() : "—"}
               </div>
             </div>
+            {batch.updatedAt && (
+              <div>
+                <div className="text-xs text-muted-foreground">Last updated</div>
+                <div className="font-medium text-foreground">
+                  {new Date(batch.updatedAt).toLocaleString()}
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Expiry</div>
             {isValid ? (
               <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">{dateFormatter.format(expiry)}</span>
-                <Badge variant={expired ? "destructive" : "outline"} className="text-xs uppercase">
-                  {expired ? "Expired" : "Active"}
-                </Badge>
+                <span className={`font-medium ${isExpired ? "text-destructive" : "text-foreground"}`}>
+                  {dateFormatter.format(expiry)}
+                </span>
               </div>
             ) : (
               <div className="font-medium text-foreground">—</div>
             )}
           </div>
         </div>
+
+        {isRecalled && (
+          <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-sm">
+            <div className="font-semibold text-destructive mb-2">Recall Information</div>
+            {batch.recallDate && (
+              <div>
+                <span className="text-xs text-muted-foreground">Recall date: </span>
+                <span className="font-medium">{dateFormatter.format(new Date(batch.recallDate))}</span>
+              </div>
+            )}
+            {batch.recallReason && (
+              <div>
+                <span className="text-xs text-muted-foreground">Reason: </span>
+                <span className="font-medium">{batch.recallReason}</span>
+              </div>
+            )}
+            {batch.recallReference && (
+              <div>
+                <span className="text-xs text-muted-foreground">Reference: </span>
+                <span className="font-medium">{batch.recallReference}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isQuarantined && (
+          <div className="rounded-lg border border-orange-500 bg-orange-500/10 p-4 text-sm">
+            <div className="font-semibold text-orange-700 dark:text-orange-400 mb-2">Quarantine Information</div>
+            {batch.quarantineDate && (
+              <div>
+                <span className="text-xs text-muted-foreground">Quarantine date: </span>
+                <span className="font-medium">{dateFormatter.format(new Date(batch.quarantineDate))}</span>
+              </div>
+            )}
+            {batch.quarantineReason && (
+              <div>
+                <span className="text-xs text-muted-foreground">Reason: </span>
+                <span className="font-medium">{batch.quarantineReason}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }, []);

@@ -3,6 +3,7 @@
 import {
   useGetBatchesQuery,
   useGetBatchesByProductQuery,
+  useGetAvailableBatchesForProductQuery,
   useGetBatchQuery,
   useCreateBatchMutation,
   useUpdateBatchMutation,
@@ -12,15 +13,8 @@ import type { Batch, UpdateBatchDto } from '@/features/batch/types';
 
 export function useBatches(options?: { productId?: string; supplierId?: string; expiredOnly?: boolean }) {
   const query = useGetBatchesQuery(options || undefined);
-  type Wrapped<T> = { success?: boolean; data?: T };
-  const raw = query.data as Batch[] | Wrapped<Batch[]> | undefined;
-  const batches = Array.isArray(raw)
-    ? raw
-    : raw && 'data' in (raw as Wrapped<Batch[]>) && Array.isArray((raw as Wrapped<Batch[]>).data)
-      ? ((raw as Wrapped<Batch[]>).data as Batch[])
-      : ([] as Batch[]);
   return {
-    batches,
+    batches: query.data || [],
     loading: query.isLoading,
     error: query.error ? (query.error as { message?: string })?.message || 'An error occurred' : null,
     refetch: query.refetch,
@@ -29,14 +23,30 @@ export function useBatches(options?: { productId?: string; supplierId?: string; 
 
 export function useBatchesByProduct(productId?: string) {
   const query = useGetBatchesByProductQuery(productId || '', { skip: !productId });
-  type Wrapped<T> = { success?: boolean; data?: T };
-  const raw = query.data as Batch[] | Wrapped<Batch[]> | undefined;
-  const batches = Array.isArray(raw)
-    ? raw
-    : raw && 'data' in (raw as Wrapped<Batch[]>) && Array.isArray((raw as Wrapped<Batch[]>).data)
-      ? ((raw as Wrapped<Batch[]>).data as Batch[])
-      : ([] as Batch[]);
-  return { ...query, batches } as typeof query & { batches: Batch[] };
+  return {
+    batches: query.data || [],
+    loading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+/**
+ * Get available batches for a product using FEFO (First Expired First Out)
+ * Returns only batches that are ACTIVE, not recalled, not quarantined, quantity > 0, and not expired
+ * Results are sorted by expiry date (earliest first)
+ */
+export function useAvailableBatchesForProduct(productId?: string, quantity?: number) {
+  const query = useGetAvailableBatchesForProductQuery(
+    { productId: productId || '', quantity },
+    { skip: !productId }
+  );
+  return {
+    batches: query.data || [],
+    loading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
 export function useBatch(id?: string) {

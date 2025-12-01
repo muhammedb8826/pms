@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import type { Batch, CreateBatchDto, UpdateBatchDto } from '@/features/batch/types';
+import { BatchStatus } from '@/features/batch/types';
 import { useCreateBatch, useUpdateBatch } from '@/features/batch/hooks/useBatches';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
 import { useAllSuppliers } from '@/features/supplier/hooks/useSuppliers';
@@ -12,15 +13,25 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
+import { IconChevronDown } from '@tabler/icons-react';
 
 const schema = z.object({
   productId: z.string().min(1, 'Product is required'),
   supplierId: z.string().min(1, 'Supplier is required'),
   batchNumber: z.string().min(1, 'Batch number is required'),
-  expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,'Invalid date (YYYY-MM-DD)'),
+  manufacturingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date (YYYY-MM-DD)').optional().or(z.literal('')),
+  expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date (YYYY-MM-DD)'),
   quantity: z.coerce.number().min(0, 'Quantity must be >= 0'),
   purchasePrice: z.coerce.number().min(0, 'Purchase price must be >= 0'),
   sellingPrice: z.coerce.number().min(0, 'Selling price must be >= 0'),
+  status: z.nativeEnum(BatchStatus).optional(),
+  recalled: z.boolean().optional(),
+  recallDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date (YYYY-MM-DD)').optional().or(z.literal('')),
+  recallReason: z.string().optional(),
+  recallReference: z.string().optional(),
+  quarantined: z.boolean().optional(),
+  quarantineDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date (YYYY-MM-DD)').optional().or(z.literal('')),
+  quarantineReason: z.string().optional(),
 });
 
 export function BatchForm({
@@ -44,12 +55,22 @@ export function BatchForm({
     productId: batch?.product?.id ?? '',
     supplierId: batch?.supplier?.id ?? '',
     batchNumber: batch?.batchNumber ?? '',
+    manufacturingDate: batch?.manufacturingDate ?? undefined,
     expiryDate: batch?.expiryDate ?? new Date().toISOString().split('T')[0],
     quantity: batch?.quantity ?? 0,
     purchasePrice: batch?.purchasePrice ?? 0,
     sellingPrice: batch?.sellingPrice ?? 0,
+    status: batch?.status ?? BatchStatus.ACTIVE,
+    recalled: batch?.recalled ?? false,
+    recallDate: batch?.recallDate ?? undefined,
+    recallReason: batch?.recallReason ?? undefined,
+    recallReference: batch?.recallReference ?? undefined,
+    quarantined: batch?.quarantined ?? false,
+    quarantineDate: batch?.quarantineDate ?? undefined,
+    quarantineReason: batch?.quarantineReason ?? undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const productsQuery = useAllProducts();
   const suppliersQuery = useAllSuppliers();
@@ -61,11 +82,24 @@ export function BatchForm({
         productId: batch.product?.id ?? '',
         supplierId: batch.supplier?.id ?? '',
         batchNumber: batch.batchNumber ?? '',
+        manufacturingDate: batch.manufacturingDate ?? undefined,
         expiryDate: batch.expiryDate ?? new Date().toISOString().split('T')[0],
         quantity: batch.quantity ?? 0,
         purchasePrice: batch.purchasePrice ?? 0,
         sellingPrice: batch.sellingPrice ?? 0,
+        status: batch.status ?? BatchStatus.ACTIVE,
+        recalled: batch.recalled ?? false,
+        recallDate: batch.recallDate ?? undefined,
+        recallReason: batch.recallReason ?? undefined,
+        recallReference: batch.recallReference ?? undefined,
+        quarantined: batch.quarantined ?? false,
+        quarantineDate: batch.quarantineDate ?? undefined,
+        quarantineReason: batch.quarantineReason ?? undefined,
       });
+      // Show advanced section if batch has recall/quarantine data
+      if (batch.recalled || batch.quarantined || batch.manufacturingDate || batch.status !== BatchStatus.ACTIVE) {
+        setShowAdvanced(true);
+      }
     }
   }, [batch]);
 
@@ -116,12 +150,21 @@ export function BatchForm({
     }
 
     try {
+      // Clean up empty strings for optional date fields
+      const cleanedData = { ...parsed.data };
+      if (cleanedData.manufacturingDate === '') delete cleanedData.manufacturingDate;
+      if (cleanedData.recallDate === '') delete cleanedData.recallDate;
+      if (cleanedData.quarantineDate === '') delete cleanedData.quarantineDate;
+      if (cleanedData.recallReason === '') delete cleanedData.recallReason;
+      if (cleanedData.recallReference === '') delete cleanedData.recallReference;
+      if (cleanedData.quarantineReason === '') delete cleanedData.quarantineReason;
+
       if (batch) {
-        const dto: UpdateBatchDto = { ...parsed.data };
+        const dto: UpdateBatchDto = cleanedData;
         await updateMutation.mutateAsync({ id: batch.id, dto });
         handleApiSuccess('Batch updated successfully');
       } else {
-        await createMutation.mutateAsync(parsed.data);
+        await createMutation.mutateAsync(cleanedData as CreateBatchDto);
         handleApiSuccess('Batch created successfully');
       }
       onSuccess();
@@ -189,6 +232,131 @@ export function BatchForm({
           <Input type="number" step="0.01" value={form.sellingPrice} onChange={(e) => setField('sellingPrice', Number(e.target.value))} />
           {errors.sellingPrice && <p className="text-xs text-red-600">{errors.sellingPrice}</p>}
         </div>
+
+        <div>
+          <label className="block text-sm font-medium">Manufacturing date</label>
+          <Input 
+            type="date" 
+            value={form.manufacturingDate || ''} 
+            onChange={(e) => setField('manufacturingDate', e.target.value || undefined)} 
+          />
+          {errors.manufacturingDate && <p className="text-xs text-red-600">{errors.manufacturingDate}</p>}
+        </div>
+      </div>
+
+      <div className="space-y-4 border-t pt-4">
+        <Button 
+          type="button" 
+          variant="ghost" 
+          className="w-full justify-between"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          <span>Advanced Options</span>
+          <IconChevronDown className={`size-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+        </Button>
+        {showAdvanced && (
+          <div className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium">Status</label>
+              <Select 
+                value={form.status || BatchStatus.ACTIVE} 
+                onValueChange={(v) => setField('status', v as BatchStatus)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={BatchStatus.ACTIVE}>Active</SelectItem>
+                  <SelectItem value={BatchStatus.EXPIRED}>Expired</SelectItem>
+                  <SelectItem value={BatchStatus.RECALLED}>Recalled</SelectItem>
+                  <SelectItem value={BatchStatus.QUARANTINED}>Quarantined</SelectItem>
+                  <SelectItem value={BatchStatus.DAMAGED}>Damaged</SelectItem>
+                  <SelectItem value={BatchStatus.RETURNED}>Returned</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t pt-4">
+            <h4 className="text-sm font-semibold">Recall Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="recalled"
+                  checked={form.recalled || false}
+                  onChange={(e) => setField('recalled', e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="recalled" className="text-sm font-medium">Batch is recalled</label>
+              </div>
+              {form.recalled && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium">Recall date</label>
+                    <Input 
+                      type="date" 
+                      value={form.recallDate || ''} 
+                      onChange={(e) => setField('recallDate', e.target.value || undefined)} 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">Recall reason</label>
+                    <Input 
+                      value={form.recallReason || ''} 
+                      onChange={(e) => setField('recallReason', e.target.value || undefined)} 
+                      placeholder="e.g., FDA recall notice #12345"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">Recall reference</label>
+                    <Input 
+                      value={form.recallReference || ''} 
+                      onChange={(e) => setField('recallReference', e.target.value || undefined)} 
+                      placeholder="e.g., FDA-2025-12345"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t pt-4">
+            <h4 className="text-sm font-semibold">Quarantine Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="quarantined"
+                  checked={form.quarantined || false}
+                  onChange={(e) => setField('quarantined', e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="quarantined" className="text-sm font-medium">Batch is quarantined</label>
+              </div>
+              {form.quarantined && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium">Quarantine date</label>
+                    <Input 
+                      type="date" 
+                      value={form.quarantineDate || ''} 
+                      onChange={(e) => setField('quarantineDate', e.target.value || undefined)} 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">Quarantine reason</label>
+                    <Input 
+                      value={form.quarantineReason || ''} 
+                      onChange={(e) => setField('quarantineReason', e.target.value || undefined)} 
+                      placeholder="e.g., Quality control investigation"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          </div>
+        )}
       </div>
 
       {!hideActions ? (
