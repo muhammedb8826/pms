@@ -36,6 +36,13 @@ export interface Sale {
     email?: string;
     address?: string;
   };
+  salesperson?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  salespersonId?: string;
   date: string; // YYYY-MM-DD
   totalAmount: number | string; // backend may return string
   paidAmount?: number | string; // optional, used for vouchers
@@ -72,6 +79,7 @@ export interface CreateSaleDto {
   items: CreateSaleItemDto[];
   paidAmount?: number;
   paymentMethodId?: string;
+  salespersonId?: string; // Optional - if not provided, uses current logged-in user
 }
 
 export interface UpdateSaleDto {
@@ -81,6 +89,7 @@ export interface UpdateSaleDto {
   items?: CreateSaleItemDto[]; // backend accepts full items array for recalculation
   paidAmount?: number;
   paymentMethodId?: string;
+  salespersonId?: string;
 }
 
 export interface PaginatedSales {

@@ -153,33 +153,51 @@ export function handleApiError(
         const errorObj = err as RTKQueryError;
         const keys = Object.keys(err);
         
-        // Check if it's an empty object or has useful properties
-        if (keys.length === 0 && !errorObj.data && !errorObj.status && !errorObj.message) {
-          console.error('API Error: Empty error object. This may indicate a serialization issue.');
-        } else {
-          // Log structured error information
-          const errorInfo: Record<string, unknown> = {
-            type: err.constructor?.name || 'Unknown',
-            keys: keys.length > 0 ? keys : 'No enumerable keys',
-          };
-          
-          if (errorObj.status !== undefined) errorInfo.status = errorObj.status;
-          if (errorObj.message) errorInfo.message = errorObj.message;
-          if (errorObj.data !== undefined) {
-            // Try to extract useful info from data without deep serialization
-            if (typeof errorObj.data === 'object' && errorObj.data !== null) {
-              const dataKeys = Object.keys(errorObj.data);
-              errorInfo.dataKeys = dataKeys.length > 0 ? dataKeys : 'Empty data object';
-              if ('message' in errorObj.data) {
-                errorInfo.dataMessage = (errorObj.data as { message?: unknown }).message;
-              }
-            } else {
-              errorInfo.data = errorObj.data;
+        // Build structured error information
+        const errorInfo: Record<string, unknown> = {
+          type: err.constructor?.name || 'Unknown',
+          hasKeys: keys.length > 0,
+          keys: keys.length > 0 ? keys : 'No enumerable keys',
+        };
+        
+        // Check for RTK Query error structure
+        if (errorObj.status !== undefined) {
+          errorInfo.status = errorObj.status;
+        }
+        if (errorObj.message) {
+          errorInfo.message = errorObj.message;
+        }
+        if (errorObj.data !== undefined) {
+          // Try to extract useful info from data
+          if (typeof errorObj.data === 'object' && errorObj.data !== null) {
+            const dataKeys = Object.keys(errorObj.data);
+            errorInfo.dataType = 'object';
+            errorInfo.dataKeys = dataKeys.length > 0 ? dataKeys : 'Empty data object';
+            if ('message' in errorObj.data) {
+              errorInfo.dataMessage = (errorObj.data as { message?: unknown }).message;
             }
+            if ('error' in errorObj.data) {
+              errorInfo.dataError = (errorObj.data as { error?: unknown }).error;
+            }
+            if ('success' in errorObj.data) {
+              errorInfo.dataSuccess = (errorObj.data as { success?: unknown }).success;
+            }
+          } else {
+            errorInfo.data = errorObj.data;
           }
-          
-          console.error('API Error:', err);
+        }
+        
+        // Check if it's an empty object
+        if (keys.length === 0 && !errorObj.data && errorObj.status === undefined && !errorObj.message) {
+          console.error('API Error: Empty error object. This may indicate a serialization issue.');
+          console.error('Error details:', errorInfo);
+        } else {
+          // Log the structured information instead of the raw error object
           console.error('API Error details:', errorInfo);
+          // Only log the original error if it has meaningful content
+          if (keys.length > 0 || errorObj.status !== undefined || errorObj.message || errorObj.data) {
+            console.error('Original error object:', err);
+          }
         }
       } else {
         console.error('API Error:', err);
@@ -187,6 +205,7 @@ export function handleApiError(
     } catch (logErr) {
       // Fallback if logging itself fails
       console.error('API Error: [Unable to log error details]', logErr);
+      console.error('Original error (fallback):', err);
     }
   }
 

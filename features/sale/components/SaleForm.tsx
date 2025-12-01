@@ -9,6 +9,7 @@ import { useAllCustomers } from '@/features/customer/hooks/useCustomers';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
 import { useAvailableBatchesForProduct } from '@/features/batch/hooks/useBatches';
 import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
+import { useAllUsers } from '@/features/user/hooks/useUsers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +17,7 @@ import type { Customer } from '@/features/customer/types';
 import type { Product } from '@/features/product/types';
 import type { Batch as BatchType } from '@/features/batch/types';
 import type { PaymentMethod as PaymentMethodEntity } from '@/features/payment-method/types';
+import type { User } from '@/features/user/types';
 
 const itemSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
@@ -62,6 +64,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   const [notes, setNotes] = useState(sale?.notes ?? '');
   const [paidAmount, setPaidAmount] = useState<number>(sale?.paidAmount ? Number(sale.paidAmount) : 0);
   const [paymentMethodId, setPaymentMethodId] = useState<string>('');
+  const [salespersonId, setSalespersonId] = useState<string>(sale?.salespersonId ?? '');
   const [items, setItems] = useState<ItemState[]>(
     sale?.items?.length
       ? sale.items.map((it) => ({
@@ -91,6 +94,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   const allCustomersQuery = useAllCustomers();
   const allProductsQuery = useAllProducts();
   const { paymentMethods } = usePaymentMethods({ includeInactive: false });
+  const allUsersQuery = useAllUsers();
 
   const customers = useMemo(() => {
     type WR<T> = { success: boolean; data: T };
@@ -109,6 +113,15 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
     if ('success' in data && data.success && Array.isArray(data.data)) return data.data;
     return [] as Product[];
   }, [allProductsQuery.data]);
+
+  const salespeople = useMemo(() => {
+    type WR<T> = { success: boolean; data: T };
+    const data = allUsersQuery.data as User[] | WR<User[]> | undefined;
+    if (!data) return [] as User[];
+    if (Array.isArray(data)) return data;
+    if ('success' in data && data.success && Array.isArray(data.data)) return data.data;
+    return [] as User[];
+  }, [allUsersQuery.data]);
 
   const isCompleted = sale?.status === 'COMPLETED';
 
@@ -170,6 +183,9 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
         if (paymentMethodId) {
           data.paymentMethodId = paymentMethodId;
         }
+        if (salespersonId) {
+          data.salespersonId = salespersonId;
+        }
         await updateSale({ id: sale.id, data }).unwrap();
         const statusMsg = parsed.status === 'CANCELLED' && sale.status === 'COMPLETED'
           ? 'Sale cancelled and inventory restored'
@@ -192,6 +208,9 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
         }
         if (paymentMethodId) {
           dto.paymentMethodId = paymentMethodId;
+        }
+        if (salespersonId) {
+          dto.salespersonId = salespersonId;
         }
         await createSale(dto).unwrap();
         const statusMsg = parsed.status === 'COMPLETED' ? 'Sale created and inventory deducted' : 'Sale created successfully';
@@ -221,6 +240,22 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
                   {customers.map((c: Customer) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Salesperson (Optional)</label>
+              <Select value={salespersonId} onValueChange={(v) => setSalespersonId(v || '')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Auto-assign current user" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Auto-assign current user</SelectItem>
+                  {salespeople.map((user: User) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.firstName} {user.lastName} ({user.email})
                     </SelectItem>
                   ))}
                 </SelectContent>

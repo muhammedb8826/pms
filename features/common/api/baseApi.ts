@@ -178,6 +178,10 @@ export const baseApi = createApi({
     'PaymentStatistics',
     'Notifications',
     'Notification',
+    'CommissionConfigs',
+    'CommissionConfig',
+    'Commissions',
+    'Commission',
   ],
   endpoints: () => ({}),
 });

@@ -146,6 +146,7 @@ const data = {
       items: [
         { title: "Unit Categories", url: "/settings/unit-categories" },
         { title: "Units of Measure", url: "/settings/uom" },
+        { title: "Commission Configs", url: "/commission-configs" },
       ],
     },
     {
