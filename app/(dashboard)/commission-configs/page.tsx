@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   IconDotsVertical,
@@ -51,7 +50,6 @@ import type { Category } from "@/features/category/types";
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 export default function CommissionConfigsPage() {
-  const router = useRouter();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -61,8 +59,6 @@ export default function CommissionConfigsPage() {
   const { configs, loading, error, refetch } = useCommissionConfigs();
   const allUsersQuery = useAllUsers();
   const allCategoriesQuery = useAllCategories();
-  const createMutation = useCreateCommissionConfig();
-  const updateMutation = useUpdateCommissionConfig();
   const deleteMutation = useDeleteCommissionConfig();
 
   const users = useMemo(() => {

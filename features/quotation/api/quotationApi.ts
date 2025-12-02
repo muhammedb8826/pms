@@ -29,7 +29,7 @@ export const quotationApi = baseApi.injectEndpoints({
     getQuotations: builder.query<Quotation[], GetQuotationsParams | void>({
       query: (params) => ({
         url: '/quotations',
-        params,
+        ...(params && { params }),
       }),
       transformResponse: unwrap<Quotation[]>,
       providesTags: ['Quotations'],
