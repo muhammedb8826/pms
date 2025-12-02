@@ -10,6 +10,7 @@ import '@/features/user/api/userApi';
 import '@/features/auth/api/accountApi';
 import '@/features/credit/api/creditApi';
 import '@/features/dashboard/api/dashboardApi';
+import '@/features/settings/api/settingsApi';
 
 export const makeStore = () => {
   return configureStore({

@@ -14,6 +14,7 @@ import {
   IconSettings,
   IconUsers,
 } from "@tabler/icons-react"
+import Image from "next/image"
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
@@ -29,6 +30,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/features/auth/contexts/AuthContext"
+import { usePharmacySettings } from "@/features/settings/hooks/useSettings"
 
 const data = {
   user: {
@@ -144,6 +146,7 @@ const data = {
       url: "#",
       icon: IconSettings,
       items: [
+        { title: "Pharmacy Settings", url: "/settings/pharmacy" },
         { title: "Unit Categories", url: "/settings/unit-categories" },
         { title: "Units of Measure", url: "/settings/uom" },
         { title: "Commission Configs", url: "/commission-configs" },
@@ -171,6 +174,31 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
+  const { settings } = usePharmacySettings()
+  const logoSrc = React.useMemo(() => {
+    const url = settings.pharmacyLogoUrl
+    if (!url) return null
+    if (url.startsWith("http://") || url.startsWith("https://")) return url
+
+    let path = url
+    if (!path.startsWith("/")) {
+      path = `/${path}`
+    }
+
+    if (path.startsWith("/uploads/")) {
+      const base = process.env.NEXT_PUBLIC_API_URL
+      if (base) {
+        try {
+          const parsed = new URL(base)
+          return `${parsed.origin}${path}`
+        } catch {
+          // fall through to return path
+        }
+      }
+    }
+
+    return path
+  }, [settings.pharmacyLogoUrl])
   const sidebarUser = user
     ? {
         name: user.email,
@@ -188,8 +216,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <a href="/dashboard">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">PMS</span>
+                {logoSrc ? (
+                  <Image
+                    width={20}
+                    height={20}
+                    src={logoSrc}
+                    alt={settings.pharmacyName}
+                    className="mr-2 h-5 w-5 rounded-sm object-cover"
+                  />
+                ) : (
+                  <IconInnerShadowTop className="!size-5 mr-2" />
+                )}
+                <span className="text-base font-semibold">
+                  {settings.pharmacyName || "My Pharmacy"}
+                </span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

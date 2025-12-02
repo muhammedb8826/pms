@@ -183,6 +183,7 @@ export const baseApi = createApi({
     'Commissions',
     'Commission',
     'Reports',
+    'Settings',
   ],
   endpoints: () => ({}),
 });

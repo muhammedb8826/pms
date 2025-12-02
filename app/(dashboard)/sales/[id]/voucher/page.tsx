@@ -6,6 +6,7 @@ import { IconPrinter } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { useSale } from "@/features/sale/hooks/useSales";
 import type { Sale } from "@/features/sale/types";
+import { usePharmacySettings } from "@/features/settings/hooks/useSettings";
 
 // Simple helper to convert numbers to words (integer part only)
 function amountInWords(amount: number): string {
@@ -55,7 +56,35 @@ function amountInWords(amount: number): string {
   return `${toWords(integerPart)} Only`;
 }
 
-function mapSaleToVoucher(sale: Sale | null | undefined) {
+function resolveLogoUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+
+  let path = url;
+  if (!path.startsWith("/")) {
+    path = `/${path}`;
+  }
+
+  if (path.startsWith("/uploads/")) {
+    const base = process.env.NEXT_PUBLIC_API_URL;
+    if (base) {
+      try {
+        const parsed = new URL(base);
+        return `${parsed.origin}${path}`;
+      } catch {
+        // fall through
+      }
+    }
+  }
+
+  return path;
+}
+
+function mapSaleToVoucher(
+  sale: Sale | null | undefined,
+  pharmacyName: string | undefined,
+  pharmacyLogoUrl: string | null | undefined,
+) {
   if (!sale) return null;
 
   const subTotal = sale.items.reduce(
@@ -75,7 +104,8 @@ function mapSaleToVoucher(sale: Sale | null | undefined) {
 
   return {
     header: {
-      companyName: "Your Pharmacy Name",
+      companyName: pharmacyName || "My Pharmacy",
+      logoUrl: resolveLogoUrl(pharmacyLogoUrl),
       tin: "TIN: 0000000000",
       vat: "VAT: ________",
       title,
@@ -121,8 +151,12 @@ export default function SaleVoucherPage() {
   const router = useRouter();
   const id = (params?.id as string) || "";
   const { data, isLoading, error } = useSale(id);
+  const { settings } = usePharmacySettings();
 
-  const voucher = useMemo(() => mapSaleToVoucher(data), [data]);
+  const voucher = useMemo(
+    () => mapSaleToVoucher(data, settings.pharmacyName, settings.pharmacyLogoUrl),
+    [data, settings.pharmacyName, settings.pharmacyLogoUrl],
+  );
 
   const handlePrint = React.useCallback(() => {
     try {
@@ -197,7 +231,15 @@ export default function SaleVoucherPage() {
 
       <div className="border border-black p-4 bg-white text-black print:border-black print:bg-white print:text-black">
         {/* Header */}
-        <div className="text-center mb-4">
+        <div className="mb-4 flex flex-col items-center gap-2 text-center">
+          {header.logoUrl && (
+            // Use native img for better print compatibility
+            <img
+              src={header.logoUrl}
+              alt={header.companyName}
+              className="mb-1 h-12 object-contain"
+            />
+          )}
           <h1 className="text-lg font-bold uppercase">
             {header.companyName}
           </h1>

@@ -132,6 +132,37 @@ export function ImageUpload({
     }
   }
 
+  // Normalize preview to a src that next/image accepts
+  const normalizedPreview = React.useMemo(() => {
+    if (!preview) return null
+
+    // Data URLs are fine as-is
+    if (preview.startsWith("data:")) return preview
+
+    // Absolute URLs
+    if (preview.startsWith("http://") || preview.startsWith("https://")) return preview
+
+    // Normalize relative /uploads paths to API origin so Next can fetch them
+    let path = preview
+    if (!path.startsWith("/")) {
+      path = `/${path}`
+    }
+
+    if (path.startsWith("/uploads/")) {
+      const base = process.env.NEXT_PUBLIC_API_URL
+      if (base) {
+        try {
+          const url = new URL(base)
+          return `${url.origin}${path}`
+        } catch {
+          // fall through to return path
+        }
+      }
+    }
+
+    return path
+  }, [preview])
+
   return (
     <div className={cn("w-full", className)}>
       <div
@@ -157,24 +188,22 @@ export function ImageUpload({
           className="hidden"
         />
 
-        {preview ? (
+        {normalizedPreview ? (
           <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted">
             <Image
               width={100}
               height={100}
-              src={preview}
+              src={normalizedPreview}
               alt="Preview"
               className="w-full h-full object-cover"
               onError={(e) => {
-                const target = e.target as HTMLImageElement;
+                const target = e.currentTarget;
                 target.style.display = 'none';
                 const parent = target.parentElement;
                 if (parent) {
-                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground">Failed to load image</div>';
+                  parent.innerHTML =
+                    '<div class="w-full h-full flex items-center justify-center text-muted-foreground">Failed to load image</div>';
                 }
-              }}
-              onLoad={() => {
-                console.log('Image loaded successfully:', preview);
               }}
             />
             {!disabled && (
