@@ -188,14 +188,28 @@ export function handleApiError(
         }
         
         // Check if it's an empty object
-        if (keys.length === 0 && !errorObj.data && errorObj.status === undefined && !errorObj.message) {
-          console.error('API Error: Empty error object. This may indicate a serialization issue.');
-          console.error('Error details:', errorInfo);
+        const isTrulyEmptyError =
+          keys.length === 0 &&
+          !errorObj.data &&
+          errorObj.status === undefined &&
+          !errorObj.message;
+
+        if (isTrulyEmptyError) {
+          console.error(
+            'API Error: Empty error object. This may indicate a serialization issue.',
+          );
+          // Avoid logging an unhelpful {} details object, but still continue
+          // to compute and show a user-facing error message below.
         } else {
-          // Log the structured information instead of the raw error object
-          console.error('API Error details:', errorInfo);
-          // Only log the original error if it has meaningful content
-          if (keys.length > 0 || errorObj.status !== undefined || errorObj.message || errorObj.data) {
+          // Log the structured information only if we have meaningful content
+          const hasMeaningfulInfo =
+            errorObj.status !== undefined ||
+            errorObj.message ||
+            errorObj.data ||
+            keys.length > 0;
+          
+          if (hasMeaningfulInfo) {
+            console.error('API Error details:', errorInfo);
             console.error('Original error object:', err);
           }
         }

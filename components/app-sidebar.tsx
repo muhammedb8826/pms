@@ -60,6 +60,7 @@ const data = {
       url: "#",
       icon: IconChartBar,
       items: [
+        { title: "Quotations", url: "/quotations" },
         { title: "Sales", url: "/sales" },
         { title: "Purchases", url: "/purchases" },
         { title: "Requisition", url: "/requisition" },

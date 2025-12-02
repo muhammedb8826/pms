@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useSale } from "@/features/sale/hooks/useSales";
 import type { Sale } from "@/features/sale/types";
 import { usePharmacySettings } from "@/features/settings/hooks/useSettings";
+import Image from "next/image";
 
 // Simple helper to convert numbers to words (integer part only)
 function amountInWords(amount: number): string {
@@ -234,7 +235,9 @@ export default function SaleVoucherPage() {
         <div className="mb-4 flex flex-col items-center gap-2 text-center">
           {header.logoUrl && (
             // Use native img for better print compatibility
-            <img
+            <Image
+              width={100}
+              height={100}
               src={header.logoUrl}
               alt={header.companyName}
               className="mb-1 h-12 object-contain"
