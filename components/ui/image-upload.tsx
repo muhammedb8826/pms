@@ -4,6 +4,7 @@ import * as React from "react"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { resolveImageUrl } from "@/lib/utils/image-url"
 
 export interface ImageUploadProps {
   value?: string | null
@@ -132,35 +133,11 @@ export function ImageUpload({
     }
   }
 
-  // Normalize preview to a src that next/image accepts
+  // Normalize preview to a src that next/image accepts using consistent resolver
   const normalizedPreview = React.useMemo(() => {
     if (!preview) return null
-
-    // Data URLs are fine as-is
-    if (preview.startsWith("data:")) return preview
-
-    // Absolute URLs
-    if (preview.startsWith("http://") || preview.startsWith("https://")) return preview
-
-    // Normalize relative /uploads paths to API origin so Next can fetch them
-    let path = preview
-    if (!path.startsWith("/")) {
-      path = `/${path}`
-    }
-
-    if (path.startsWith("/uploads/")) {
-      const base = process.env.NEXT_PUBLIC_API_URL
-      if (base) {
-        try {
-          const url = new URL(base)
-          return `${url.origin}${path}`
-        } catch {
-          // fall through to return path
-        }
-      }
-    }
-
-    return path
+    // Use the centralized image URL resolver for consistency
+    return resolveImageUrl(preview)
   }, [preview])
 
   return (

@@ -43,24 +43,8 @@ import {
   useLazyDownloadProductTemplateQuery,
 } from '@/features/product/api/productApi';
 import type { Product } from '@/features/product/types';
-
-function resolveImageUrl(path?: string | null) {
-  if (!path) return '';
-  if (path.startsWith('http')) return path;
-  const base = process.env.NEXT_PUBLIC_API_URL;
-  if (base) {
-    try {
-      const url = new URL(base);
-      return `${url.origin}${path.startsWith('/') ? path : `/${path}`}`;
-    } catch {
-      // fall back to window origin
-    }
-  }
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
-  }
-  return path;
-}
+import { convertFromBase, formatQuantityWithUom } from '@/features/uom/utils/uomConversion';
+import { resolveImageUrl } from '@/lib/utils/image-url';
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -167,7 +151,16 @@ export default function ProductsPage() {
       {
         accessorKey: 'quantity',
         header: () => <div className="text-right">Qty</div>,
-        cell: ({ row }) => <div className="text-right text-sm font-medium tabular-nums">{row.original.quantity}</div>,
+        cell: ({ row }) => {
+          const product = row.original;
+          const quantityInBase = product.quantity ?? 0;
+          // Convert to default UOM if available, otherwise show in base UOM
+          const displayQuantity = product.defaultUom
+            ? convertFromBase(quantityInBase, product.defaultUom)
+            : quantityInBase;
+          const displayText = formatQuantityWithUom(displayQuantity, product.defaultUom, 2);
+          return <div className="text-right text-sm font-medium tabular-nums">{displayText}</div>;
+        },
       },
       {
         accessorKey: 'purchasePrice',
@@ -373,7 +366,7 @@ export default function ProductsPage() {
             <div className="relative aspect-square w-full overflow-hidden rounded-md bg-background">
               <Image
                 fill
-                src={resolveImageUrl(product.image)}
+                src={resolveImageUrl(product.image) || '/placeholder-image.png'}
                 alt={product.name}
                 className="object-contain"
               />
@@ -400,7 +393,15 @@ export default function ProductsPage() {
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Quantity</div>
-              <div className="font-medium tabular-nums">{product.quantity}</div>
+              <div className="font-medium tabular-nums">
+                {(() => {
+                  const quantityInBase = product.quantity ?? 0;
+                  const displayQuantity = product.defaultUom
+                    ? convertFromBase(quantityInBase, product.defaultUom)
+                    : quantityInBase;
+                  return formatQuantityWithUom(displayQuantity, product.defaultUom, 2);
+                })()}
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Min level</div>

@@ -32,6 +32,7 @@ import {
 import { useAuth } from "@/features/auth/contexts/AuthContext"
 import { usePharmacySettings } from "@/features/settings/hooks/useSettings"
 import { useCurrentUserPermissions } from "@/features/permission/hooks/usePermissions"
+import { resolveImageUrl } from "@/lib/utils/image-url"
 
 const data = {
   user: {
@@ -246,28 +247,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isAdmin = user?.role === "ADMIN"
 
   const logoSrc = React.useMemo(() => {
-    const url = settings.pharmacyLogoUrl
-    if (!url) return null
-    if (url.startsWith("http://") || url.startsWith("https://")) return url
-
-    let path = url
-    if (!path.startsWith("/")) {
-      path = `/${path}`
-    }
-
-    if (path.startsWith("/uploads/")) {
-      const base = process.env.NEXT_PUBLIC_API_URL
-      if (base) {
-        try {
-          const parsed = new URL(base)
-          return `${parsed.origin}${path}`
-        } catch {
-          // fall through to return path
-        }
-      }
-    }
-
-    return path
+    return resolveImageUrl(settings.pharmacyLogoUrl)
   }, [settings.pharmacyLogoUrl])
   const sidebarUser = user
     ? {

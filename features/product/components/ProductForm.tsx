@@ -21,6 +21,7 @@ import { UnitCategoryForm } from '@/features/unit-category/components/UnitCatego
 import { Button } from '@/components/ui/button';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { useUploadProductImage } from '@/features/product/hooks/useProducts';
+import { resolveImageUrl } from '@/lib/utils/image-url';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
@@ -126,6 +127,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
   const uploadImageMutation = useUploadProductImage();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [currentProductId, setCurrentProductId] = useState<string | null>(product?.id || null);
 
   useEffect(() => {
     onSubmittingChange?.(createMutation.isPending || updateMutation.isPending || uploadImageMutation.isPending);
@@ -176,18 +178,21 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
       if (product) {
         const updated = await updateMutation.mutateAsync({ id: product.id, dto: parsed.data });
         productId = updated.id;
+        setCurrentProductId(productId);
         handleApiSuccess('Product updated successfully');
       } else {
         const created = await createMutation.mutateAsync(parsed.data);
         productId = created.id;
+        setCurrentProductId(productId);
         handleApiSuccess('Product created successfully');
       }
       
-      // Upload image if a new one was selected
-      if (imageFile) {
+      // Auto-upload image if one was selected (for both create and update)
+      if (imageFile && productId) {
         try {
           await uploadImageMutation.mutateAsync({ id: productId, file: imageFile });
           handleApiSuccess('Product image uploaded successfully');
+          setImageFile(null); // Clear file after successful upload
         } catch (imageErr) {
           // Don't fail the whole operation if image upload fails
           handleApiError(imageErr, {
@@ -205,14 +210,31 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
     }
   }
 
-  // Get full image URL for display
+  async function handleImageUpload() {
+    if (!imageFile) {
+      handleApiError('No image file selected', { showToast: true });
+      return;
+    }
+
+    const productId = currentProductId || product?.id;
+    if (!productId) {
+      handleApiError('Please save the product first before uploading an image', { showToast: true });
+      return;
+    }
+
+    try {
+      await uploadImageMutation.mutateAsync({ id: productId, file: imageFile });
+      handleApiSuccess('Product image uploaded successfully');
+      setImageFile(null); // Clear file after successful upload
+      // The preview will update from the product data after refetch
+    } catch (err) {
+      handleApiError(err, { defaultMessage: 'Failed to upload product image' });
+    }
+  }
+
+  // Use the consistent image URL resolver
   const getImageUrl = (imagePath: string | null | undefined): string | null => {
-    if (!imagePath) return null;
-    if (imagePath.startsWith('http')) return imagePath;
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://pms-api.qenenia.com/api/v1';
-    // Remove /api/v1 from base URL and use root
-    const baseUrl = apiBase.replace('/api/v1', '');
-    return imagePath.startsWith('/') ? `${baseUrl}${imagePath}` : `${baseUrl}/${imagePath}`;
+    return resolveImageUrl(imagePath);
   };
 
   return (
@@ -381,13 +403,45 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
 
         {/* Right column - Image upload */}
         <div className="lg:col-span-1">
-          <div className="sticky top-4">
+          <div className="sticky top-4 space-y-2">
             <label className="block text-sm font-medium mb-2">Product Image</label>
             <ImageUpload
               value={imagePreviewUrl || getImageUrl(product?.image) || null}
               onChange={(file) => setImageFile(file)}
+              onRemove={async () => {
+                setImageFile(null);
+                setImagePreviewUrl(null);
+                if (product?.id) {
+                  try {
+                    // Note: You may need to add a delete image endpoint or update product with null image
+                    // For now, just clear the local state
+                    handleApiSuccess('Image removed');
+                  } catch (err) {
+                    handleApiError(err, { defaultMessage: 'Failed to remove image' });
+                  }
+                }
+              }}
               disabled={createMutation.isPending || updateMutation.isPending || uploadImageMutation.isPending}
             />
+            {imageFile && (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleImageUpload}
+                  disabled={uploadImageMutation.isPending || !(currentProductId || product?.id)}
+                  className="w-full"
+                >
+                  {uploadImageMutation.isPending ? 'Uploading…' : 'Upload Image'}
+                </Button>
+              </div>
+            )}
+            {imageFile && !currentProductId && !product?.id && (
+              <p className="text-xs text-muted-foreground">
+                Save the product first, then upload the image.
+              </p>
+            )}
           </div>
         </div>
       </div>

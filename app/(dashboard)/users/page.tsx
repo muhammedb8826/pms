@@ -22,22 +22,10 @@ const genderLabel = (gender?: string | null) =>
   gender ? gender.charAt(0) + gender.slice(1).toLowerCase() : '—';
 const formatDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString() : '—');
 
+import { resolveImageUrl } from '@/lib/utils/image-url';
+
 function resolveProfileUrl(path?: string | null) {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const base = process.env.NEXT_PUBLIC_API_URL;
-  if (base) {
-    try {
-      const url = new URL(base);
-      return `${url.origin}${path.startsWith('/') ? path : `/${path}`}`;
-    } catch {
-      // fall through to window origin handling
-    }
-  }
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
-  }
-  return path;
+  return resolveImageUrl(path) || '';
 }
 
 export default function UsersPage() {

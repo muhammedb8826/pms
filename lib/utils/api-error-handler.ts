@@ -254,15 +254,40 @@ export function handleApiError(
           });
           
           // Final check: only log if filteredLogData has actual content
-          // Check both key count and if serialized version is not just {}
-          const hasContent = Object.keys(filteredLogData).length > 0;
-          const serialized = JSON.stringify(filteredLogData);
-          const isEmptyObject = serialized === '{}';
+          // First check if we have any keys at all
+          const hasKeys = Object.keys(filteredLogData).length > 0;
           
-          if (hasContent && !isEmptyObject) {
-            console.error('API Error:', filteredLogData);
+          if (hasKeys) {
+            // Check if any values are actually non-empty
+            const hasNonEmptyValues = Object.values(filteredLogData).some(val => {
+              if (val === null || val === undefined || val === '') return false;
+              if (typeof val === 'string' && val.trim().length === 0) return false;
+              if (Array.isArray(val) && val.length === 0) return false;
+              if (typeof val === 'object' && !Array.isArray(val)) {
+                const objKeys = Object.keys(val as Record<string, unknown>);
+                if (objKeys.length === 0) return false;
+                // Recursively check if nested object has any non-empty values
+                return Object.values(val as Record<string, unknown>).some(nestedVal => {
+                  if (nestedVal === null || nestedVal === undefined || nestedVal === '') return false;
+                  if (typeof nestedVal === 'string' && nestedVal.trim().length === 0) return false;
+                  if (Array.isArray(nestedVal) && nestedVal.length === 0) return false;
+                  return true;
+                });
+              }
+              return true;
+            });
+            
+            // Also check serialized version to catch edge cases
+            const serialized = JSON.stringify(filteredLogData);
+            const isEmptyObject = serialized === '{}' || serialized === '[]';
+            
+            // Only log if we have non-empty values AND serialized version is not empty
+            if (hasNonEmptyValues && !isEmptyObject) {
+              console.error('API Error:', filteredLogData);
+            }
+            // Otherwise silent: all values were filtered out or serialized to {}
           }
-          // Otherwise silent: all values were filtered out or serialized to {}
+          // Otherwise silent: no keys in filteredLogData
         } else {
           // Check if original error has any enumerable properties
           const originalKeys = Object.keys(err as Record<string, unknown>);

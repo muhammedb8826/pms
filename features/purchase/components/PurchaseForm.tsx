@@ -533,23 +533,32 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
                       )}
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={item.uomId || '__none__'}
-                        onValueChange={(v) => updateItem(index, 'uomId', v === '__none__' ? undefined : (v || undefined))}
-                        disabled={isCompleted || isCancelled}
-                      >
-                        <SelectTrigger className="w-full min-w-[120px]">
-                          <SelectValue placeholder="Optional" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {allUoms.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name}{u.abbreviation ? ` (${u.abbreviation})` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {(() => {
+                        // Find selected product to filter UOMs by its unit category
+                        const selectedProduct = allProducts.find((p) => p.id === item.productId);
+                        const filteredUoms = selectedProduct?.unitCategory?.id
+                          ? allUoms.filter((u) => u.unitCategoryId === selectedProduct.unitCategory.id)
+                          : [];
+                        return (
+                          <Select
+                            value={item.uomId || '__none__'}
+                            onValueChange={(v) => updateItem(index, 'uomId', v === '__none__' ? undefined : (v || undefined))}
+                            disabled={isCompleted || isCancelled || !selectedProduct}
+                          >
+                            <SelectTrigger className="w-full min-w-[120px]">
+                              <SelectValue placeholder="Base UOM" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Base UOM</SelectItem>
+                              {filteredUoms.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.abbreviation || u.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Input

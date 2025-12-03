@@ -7,32 +7,12 @@ import { ThemeSwitcher } from "@/components/theme-switcher"
 import { NotificationBell } from "@/components/notification-bell"
 import { usePharmacySettings } from "@/features/settings/hooks/useSettings"
 import Image from "next/image"
+import { resolveImageUrl } from "@/lib/utils/image-url"
 
 export function SiteHeader() {
   const { settings } = usePharmacySettings()
   const logoSrc = React.useMemo(() => {
-    const url = settings.pharmacyLogoUrl
-    if (!url) return null
-    if (url.startsWith("http://") || url.startsWith("https://")) return url
-
-    let path = url
-    if (!path.startsWith("/")) {
-      path = `/${path}`
-    }
-
-    if (path.startsWith("/uploads/")) {
-      const base = process.env.NEXT_PUBLIC_API_URL
-      if (base) {
-        try {
-          const parsed = new URL(base)
-          return `${parsed.origin}${path}`
-        } catch {
-          // fall through to return path
-        }
-      }
-    }
-
-    return path
+    return resolveImageUrl(settings.pharmacyLogoUrl)
   }, [settings.pharmacyLogoUrl])
 
   return (

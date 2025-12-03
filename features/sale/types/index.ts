@@ -20,6 +20,14 @@ export interface SaleItem {
     purchasePrice?: number;
     sellingPrice?: number;
   };
+  uom?: {
+    id: string;
+    name: string;
+    abbreviation?: string;
+    conversionRate: string;
+    baseUnit: boolean;
+  };
+  uomId?: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -56,6 +64,7 @@ export interface Sale {
 export interface CreateSaleItemDto {
   productId: string;
   batchId: string;
+  uomId?: string;
   quantity: number;
   unitPrice: number;
   discount?: number;

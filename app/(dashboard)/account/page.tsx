@@ -13,32 +13,11 @@ import { useUpdateProfileMutation, useChangePasswordMutation, useUploadAvatarMut
 import type { User as AuthUser } from "@/features/auth/types";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { handleApiError, handleApiSuccess } from "@/lib/utils/api-error-handler";
+import { resolveImageUrl } from "@/lib/utils/image-url";
 
 
 function resolveProfileUrl(path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  
-  // Get API base URL and extract origin
-  const base = process.env.NEXT_PUBLIC_API_URL;
-  if (base) {
-    try {
-      const url = new URL(base);
-      // Ensure path starts with / for proper URL construction
-      const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-      return `${url.origin}${normalizedPath}`;
-    } catch {
-      // If base URL parsing fails, fall back to window origin
-    }
-  }
-  
-  // Fallback to current window origin
-  if (typeof window !== "undefined") {
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    return `${window.location.origin}${normalizedPath}`;
-  }
-  
-  return path;
+  return resolveImageUrl(path) || "";
 }
 
 export default function AccountPage() {

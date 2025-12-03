@@ -9,7 +9,9 @@ import { useAllCustomers } from '@/features/customer/hooks/useCustomers';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
 import { useAvailableBatchesForProduct } from '@/features/batch/hooks/useBatches';
 import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
-import { useAllUsers } from '@/features/user/hooks/useUsers';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAllUnitOfMeasures } from '@/features/uom/hooks/useUnitOfMeasures';
+import type { UnitOfMeasure } from '@/features/uom/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,11 +19,11 @@ import type { Customer } from '@/features/customer/types';
 import type { Product } from '@/features/product/types';
 import type { Batch as BatchType } from '@/features/batch/types';
 import type { PaymentMethod as PaymentMethodEntity } from '@/features/payment-method/types';
-import type { User } from '@/features/user/types';
 
 const itemSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
   batchId: z.string().min(1, 'Batch is required'),
+  uomId: z.string().optional(),
   quantity: z.number().min(1, 'Quantity must be at least 1'),
   unitPrice: z.number().min(0, 'Unit price cannot be negative'),
   discount: z.number().min(0, 'Discount cannot be negative').optional(),
@@ -50,6 +52,7 @@ export type SaleFormProps = {
 type ItemState = {
   productId: string;
   batchId: string;
+  uomId?: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -64,12 +67,17 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   const [notes, setNotes] = useState(sale?.notes ?? '');
   const [paidAmount, setPaidAmount] = useState<number>(sale?.paidAmount ? Number(sale.paidAmount) : 0);
   const [paymentMethodId, setPaymentMethodId] = useState<string>('');
-  const [salespersonId, setSalespersonId] = useState<string>(sale?.salespersonId ?? '');
+  
+  // Get current logged-in user
+  const { user: currentUser } = useAuth();
+  // Use current user as salesperson, or fall back to sale's salespersonId if editing
+  const salespersonId = sale?.salespersonId || currentUser?.id || '';
   const [items, setItems] = useState<ItemState[]>(
     sale?.items?.length
       ? sale.items.map((it) => ({
           productId: it.product?.id ?? '',
           batchId: it.batch?.id ?? '',
+          uomId: it.uomId ?? it.uom?.id ?? undefined,
           quantity: it.quantity ?? 1,
           unitPrice: Number(it.unitPrice ?? 0),
           discount: Number(it.discount ?? 0),
@@ -94,7 +102,6 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   const allCustomersQuery = useAllCustomers();
   const allProductsQuery = useAllProducts();
   const { paymentMethods } = usePaymentMethods({ includeInactive: false });
-  const allUsersQuery = useAllUsers();
 
   const customers = useMemo(() => {
     type WR<T> = { success: boolean; data: T };
@@ -114,15 +121,6 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
     return [] as Product[];
   }, [allProductsQuery.data]);
 
-  const salespeople = useMemo(() => {
-    type WR<T> = { success: boolean; data: T };
-    const data = allUsersQuery.data as User[] | WR<User[]> | undefined;
-    if (!data) return [] as User[];
-    if (Array.isArray(data)) return data;
-    if ('success' in data && data.success && Array.isArray(data.data)) return data.data;
-    return [] as User[];
-  }, [allUsersQuery.data]);
-
   const isCompleted = sale?.status === 'COMPLETED';
 
   useEffect(() => {
@@ -139,7 +137,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { productId: '', batchId: '', quantity: 1, unitPrice: 0, discount: 0 }]);
+    setItems((prev) => [...prev, { productId: '', batchId: '', quantity: 1, unitPrice: 0, discount: 0, uomId: undefined }]);
   }
 
   function removeItem(index: number) {
@@ -168,6 +166,17 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
     onSubmittingChange?.(true);
     try {
       const parsed = saleSchema.parse({ customerId, date, status, notes: notes || undefined, items });
+      // Map items to ensure uomId is included in payload
+      const mappedItems: CreateSaleItemDto[] = parsed.items.map((item) => ({
+        productId: item.productId,
+        batchId: item.batchId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+        totalPrice: item.totalPrice,
+        notes: item.notes,
+        ...(item.uomId && item.uomId.trim() !== '' ? { uomId: item.uomId } : {}),
+      }));
       if (sale) {
         // Note: Batch quantity validation is handled by the backend
         // Frontend validation is shown in the ItemRow component
@@ -175,7 +184,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
           date: parsed.date,
           status: parsed.status,
           notes: parsed.notes,
-          items: parsed.items as CreateSaleItemDto[], // Include items for update as per guide
+          items: mappedItems, // Include items for update as per guide
         };
         if (paidAmount > 0) {
           data.paidAmount = paidAmount;
@@ -183,6 +192,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
         if (paymentMethodId) {
           data.paymentMethodId = paymentMethodId;
         }
+        // Always include salespersonId (current user or existing sale's salesperson)
         if (salespersonId) {
           data.salespersonId = salespersonId;
         }
@@ -201,7 +211,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
           date: parsed.date,
           status: parsed.status ?? 'COMPLETED',
           notes: parsed.notes,
-          items: parsed.items as CreateSaleItemDto[],
+          items: mappedItems,
         };
         if (paidAmount > 0) {
           dto.paidAmount = paidAmount;
@@ -209,6 +219,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
         if (paymentMethodId) {
           dto.paymentMethodId = paymentMethodId;
         }
+        // Always include current user as salesperson for new sales
         if (salespersonId) {
           dto.salespersonId = salespersonId;
         }
@@ -246,20 +257,23 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Salesperson (Optional)</label>
-              <Select value={salespersonId} onValueChange={(v) => setSalespersonId(v || '')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Auto-assign current user" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Auto-assign current user</SelectItem>
-                  {salespeople.map((user: User) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} ({user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="block text-sm font-medium mb-2">Salesperson</label>
+              <Input
+                type="text"
+                value={
+                  currentUser
+                    ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email
+                    : sale?.salesperson
+                    ? `${sale.salesperson.firstName} ${sale.salesperson.lastName}`
+                    : '—'
+                }
+                disabled
+                className="bg-muted"
+                readOnly
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {currentUser ? `Current user: ${currentUser.email}` : 'No user logged in'}
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Date</label>
@@ -320,20 +334,21 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <label className="block text-sm font-medium">Items</label>
-            <div className="overflow-x-auto border rounded-md">
+            <div className="overflow-x-auto border rounded-lg bg-background">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left">
                   <tr>
-                    <th className="p-2">Product</th>
-                    <th className="p-2">Batch</th>
-                    <th className="p-2">Qty</th>
-                    <th className="p-2">Unit Price</th>
-                    <th className="p-2">Discount</th>
-                    <th className="p-2">Total</th>
-                    <th className="p-2">Notes</th>
-                    <th className="p-2">Action</th>
+                    <th className="px-4 py-3 font-semibold">Product</th>
+                    <th className="px-4 py-3 font-semibold">Batch</th>
+                    <th className="px-4 py-3 font-semibold">Qty</th>
+                    <th className="px-4 py-3 font-semibold">UOM</th>
+                    <th className="px-4 py-3 font-semibold">Unit Price</th>
+                    <th className="px-4 py-3 font-semibold">Discount</th>
+                    <th className="px-4 py-3 font-semibold">Total</th>
+                    <th className="px-4 py-3 font-semibold">Notes</th>
+                    <th className="px-4 py-3 font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -405,11 +420,29 @@ function ItemRow({
     return batches.find((b) => b.id === value.batchId);
   }, [batches, value.batchId]);
 
+  // Get selected product to find its unit category
+  const selectedProduct = useMemo(() => {
+    return products.find((p) => p.id === value.productId);
+  }, [products, value.productId]);
+
+  // Fetch UOMs filtered by product's unit category
+  const uomsQuery = useAllUnitOfMeasures(
+    selectedProduct?.unitCategory?.id ? { unitCategoryId: selectedProduct.unitCategory.id } : undefined
+  );
+  const availableUoms = useMemo(() => {
+    type WR<T> = { success?: boolean; data?: T };
+    const data = uomsQuery.data as UnitOfMeasure[] | WR<UnitOfMeasure[]> | undefined;
+    if (!data) return [] as UnitOfMeasure[];
+    if (Array.isArray(data)) return data;
+    if ('data' in data && Array.isArray(data.data)) return data.data;
+    return [] as UnitOfMeasure[];
+  }, [uomsQuery.data]);
+
   return (
-    <tr className="border-b">
-      <td className="p-2">
+    <tr className="border-b hover:bg-muted/30 transition-colors">
+      <td className="px-4 py-3 min-w-[180px]">
         <Select value={value.productId} onValueChange={(v) => onChange(index, 'productId', v || '')}>
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select product" />
           </SelectTrigger>
           <SelectContent>
@@ -419,9 +452,9 @@ function ItemRow({
           </SelectContent>
         </Select>
       </td>
-      <td className="p-2">
+      <td className="px-4 py-3 min-w-[150px]">
         <Select value={value.batchId} onValueChange={(v) => onChange(index, 'batchId', v || '')}>
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select batch" />
           </SelectTrigger>
           <SelectContent>
@@ -433,12 +466,12 @@ function ItemRow({
           </SelectContent>
         </Select>
         {selectedBatch && (
-          <div className="text-xs text-muted-foreground mt-1">
+          <div className="text-xs text-muted-foreground mt-1.5">
             Available: {selectedBatch.quantity ?? 0}
           </div>
         )}
       </td>
-      <td className="p-2 w-24">
+      <td className="px-4 py-3 min-w-[100px]">
         <Input
           type="number"
           min={1}
@@ -452,27 +485,78 @@ function ItemRow({
             }
             onChange(index, 'quantity', qty);
           }}
+          className="w-full"
         />
         {selectedBatch && value.quantity > (selectedBatch.quantity ?? 0) && (
-          <div className="text-xs text-destructive mt-1">
+          <div className="text-xs text-destructive mt-1.5">
             Exceeds available quantity ({selectedBatch.quantity ?? 0})
           </div>
         )}
       </td>
-      <td className="p-2 w-28">
-        <Input type="number" value={value.unitPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'unitPrice', Number(e.target.value))} />
+      <td className="px-4 py-3 min-w-[100px]">
+        <Select
+          value={value.uomId || '__none__'}
+          onValueChange={(v) => onChange(index, 'uomId', v === '__none__' ? undefined : (v || undefined))}
+          disabled={!selectedProduct}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Base UOM" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Base UOM</SelectItem>
+            {availableUoms.map((uom) => (
+              <SelectItem key={uom.id} value={uom.id}>
+                {uom.abbreviation || uom.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </td>
-      <td className="p-2 w-24">
-        <Input type="number" value={value.discount ?? 0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'discount', Number(e.target.value))} />
+      <td className="px-4 py-3 min-w-[120px]">
+        <Input
+          type="number"
+          step="0.01"
+          value={value.unitPrice}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'unitPrice', Number(e.target.value))}
+          className="w-full"
+        />
       </td>
-      <td className="p-2 w-28">
-        <Input type="number" value={Number(value.totalPrice ?? (Number(value.quantity) * Number(value.unitPrice) - Number(value.discount || 0))).toFixed(2)} readOnly />
+      <td className="px-4 py-3 min-w-[100px]">
+        <Input
+          type="number"
+          step="0.01"
+          value={value.discount ?? 0}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'discount', Number(e.target.value))}
+          className="w-full"
+        />
       </td>
-      <td className="p-2">
-        <Input value={value.notes ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'notes', e.target.value)} placeholder="Notes" />
+      <td className="px-4 py-3 min-w-[120px]">
+        <Input
+          type="number"
+          step="0.01"
+          value={Number(value.totalPrice ?? (Number(value.quantity) * Number(value.unitPrice) - Number(value.discount || 0))).toFixed(2)}
+          readOnly
+          className="w-full bg-muted"
+        />
       </td>
-      <td className="p-2">
-        <Button type="button" variant="destructive" onClick={() => onRemove(index)}>Delete</Button>
+      <td className="px-4 py-3 min-w-[150px]">
+        <Input
+          value={value.notes ?? ''}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'notes', e.target.value)}
+          placeholder="Notes"
+          className="w-full"
+        />
+      </td>
+      <td className="px-4 py-3">
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          onClick={() => onRemove(index)}
+          className="w-full"
+        >
+          Delete
+        </Button>
       </td>
     </tr>
   );

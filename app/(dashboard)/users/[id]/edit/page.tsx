@@ -9,22 +9,10 @@ import { useUser } from '@/features/user/hooks/useUsers';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
+import { resolveImageUrl } from '@/lib/utils/image-url';
+
 function resolveProfileUrl(path?: string | null) {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const base = process.env.NEXT_PUBLIC_API_URL;
-  if (base) {
-    try {
-      const url = new URL(base);
-      return `${url.origin}${path.startsWith('/') ? path : `/${path}`}`;
-    } catch {
-      // fall through
-    }
-  }
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
-  }
-  return path;
+  return resolveImageUrl(path) || '';
 }
 
 export default function EditUserPage() {

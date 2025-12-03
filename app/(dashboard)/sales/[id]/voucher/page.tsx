@@ -57,28 +57,10 @@ function amountInWords(amount: number): string {
   return `${toWords(integerPart)} Only`;
 }
 
+import { resolveImageUrl } from '@/lib/utils/image-url';
+
 function resolveLogoUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-
-  let path = url;
-  if (!path.startsWith("/")) {
-    path = `/${path}`;
-  }
-
-  if (path.startsWith("/uploads/")) {
-    const base = process.env.NEXT_PUBLIC_API_URL;
-    if (base) {
-      try {
-        const parsed = new URL(base);
-        return `${parsed.origin}${path}`;
-      } catch {
-        // fall through
-      }
-    }
-  }
-
-  return path;
+  return resolveImageUrl(url);
 }
 
 function mapSaleToVoucher(
