@@ -8,7 +8,8 @@ import {
   useUpdateCustomerMutation,
   useDeleteCustomerMutation,
 } from '@/features/customer/api/customerApi';
-import type { Customer, PaginatedCustomers, CreateCustomerDto, UpdateCustomerDto } from '@/features/customer/types';
+import type { Customer, PaginatedCustomers, UpdateCustomerDto, CreateCustomerDto } from '@/features/customer/types';
+import { extractErrorMessage } from '@/lib/utils/api-error-handler';
 
 export function useCustomers(
   page = 1,
@@ -35,7 +36,7 @@ export function useCustomers(
     customers,
     total,
     loading: query.isLoading,
-    error: query.error ? (query.error as { message?: string })?.message || 'An error occurred' : null,
+    error: query.error ? extractErrorMessage(query.error) : null,
     refetch: query.refetch,
   };
 }
@@ -54,13 +55,17 @@ export function useCustomer(id?: string) {
 
 export function useCreateCustomer() {
   const [mutate, result] = useCreateCustomerMutation();
-  return { mutateAsync: mutate, isPending: result.isLoading, ...result };
+  return {
+    mutateAsync: (dto: CreateCustomerDto) => mutate(dto).unwrap(),
+    isPending: result.isLoading,
+    ...result,
+  };
 }
 
 export function useUpdateCustomer() {
   const [mutate, result] = useUpdateCustomerMutation();
   return {
-    mutateAsync: ({ id, dto }: { id: string; dto: UpdateCustomerDto }) => mutate({ id, data: dto }),
+    mutateAsync: ({ id, dto }: { id: string; dto: UpdateCustomerDto }) => mutate({ id, data: dto }).unwrap(),
     isPending: result.isLoading,
     ...result,
   };

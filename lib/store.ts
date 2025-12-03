@@ -12,6 +12,7 @@ import '@/features/credit/api/creditApi';
 import '@/features/dashboard/api/dashboardApi';
 import '@/features/quotation/api/quotationApi';
 import '@/features/settings/api/settingsApi';
+import '@/features/permission/api/permissionApi';
 
 export const makeStore = () => {
   return configureStore({

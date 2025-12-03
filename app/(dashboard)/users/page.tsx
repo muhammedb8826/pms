@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ColumnDef } from '@tanstack/react-table';
-import { IconDotsVertical, IconPlus, IconPencil, IconSettings, IconTrash } from '@tabler/icons-react';
+import { IconDotsVertical, IconPlus, IconSettings, IconTrash, IconKey } from '@tabler/icons-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { USER_GENDERS, USER_ROLES, User, UserGender, UserRole, UserSortBy } from '@/features/user/types';
 import { useDeleteUser, useUpdateUser, useUsers } from '@/features/user/hooks/useUsers';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 
 const roleLabel = (role: string) => role.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 const genderLabel = (gender?: string | null) =>
@@ -51,6 +52,8 @@ export default function UsersPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const router = useRouter();
+  const { user: authUser } = useAuth();
+  const isAdmin = authUser?.role === 'ADMIN';
 
   const { users, total, loading, isFetching, refetch } = useUsers(page, pageSize, {
     search: search.trim() || undefined,
@@ -74,6 +77,13 @@ export default function UsersPage() {
     router.push('/users/new');
   }, [router]);
 
+  const handleManagePermissions = useCallback(
+    (user: User) => {
+      router.push(`/users/${user.id}/permissions`);
+    },
+    [router],
+  );
+
   const handleToggleActive = useCallback(async (user: User) => {
     try {
       await statusMutation.mutateAsync({ id: user.id, data: { isActive: !user.isActive } });
@@ -95,66 +105,6 @@ export default function UsersPage() {
       setConfirmDeleteId(null);
     }
   }, [deleteMutation, refetch]);
-
-  const renderDetails = useCallback((user: User) => {
-    const fullName = `${user.firstName} ${user.lastName ?? ''}`.trim() || user.email;
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-14 w-14 rounded-lg">
-            {user.profile ? (
-              <AvatarImage src={resolveProfileUrl(user.profile)} alt={fullName} />
-            ) : (
-              <AvatarFallback className="rounded-lg">
-                {user.firstName?.[0]}
-                {user.lastName?.[0] ?? ''}
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div className="flex flex-col gap-1">
-            <Badge variant={user.isActive ? 'default' : 'outline'} className="w-fit">
-              {user.isActive ? 'Active' : 'Inactive'}
-            </Badge>
-            <div className="flex flex-wrap gap-1">
-              {user.roles.map((role) => (
-                <Badge key={role} variant="secondary">
-                  {roleLabel(role)}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded-lg border bg-muted/30 p-4 text-sm">
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Email</div>
-            <div className="text-sm font-medium">{user.email}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Phone</div>
-            <div className="text-sm">{user.phone}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Gender</div>
-            <div className="text-sm">{genderLabel(user.gender)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Created</div>
-            <div className="text-sm">{formatDate(user.createdAt)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Updated</div>
-            <div className="text-sm">{formatDate(user.updatedAt)}</div>
-          </div>
-          <div className="sm:col-span-2">
-            <div className="text-xs text-muted-foreground mb-1">Address</div>
-            <div className="text-sm">{user.address || '—'}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }, []);
 
   const columns = useMemo<ColumnDef<User>[]>(() => [
     {
@@ -262,6 +212,23 @@ export default function UsersPage() {
                 >
                   Edit user
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleManagePermissions(user);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <IconKey className="size-4" />
+                      Manage permissions
+                    </span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={(event) => {
@@ -293,7 +260,7 @@ export default function UsersPage() {
         );
       },
     },
-  ], [handleEdit, handleToggleActive]);
+  ], [handleEdit, handleToggleActive, handleManagePermissions, isAdmin]);
 
   return (
     <div className="flex flex-col gap-4 p-4 overflow-x-hidden">
@@ -326,25 +293,6 @@ export default function UsersPage() {
           loading={loading || isFetching}
           emptyMessage="No users found"
           enableColumnVisibility={true}
-          renderDetails={renderDetails}
-          detailsTitle={(user) => `${user.firstName} ${user.lastName ?? ''}`.trim() || user.email}
-          detailsDescription={(user) => user.email}
-          renderDetailsFooter={(user, onClose) => (
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onClose();
-                setTimeout(() => {
-                  router.push(`/users/${user.id}/edit`);
-                }, 0);
-              }}
-              className="w-full"
-            >
-              <IconPencil className="mr-2 size-4" />
-              Edit User
-            </Button>
-          )}
           headerFilters={
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Input

@@ -134,6 +134,21 @@ const baseQuery: BaseQueryFn<
     };
   }
 
+  // Ensure error responses (like 403) have properly formatted error data
+  if (result.error && result.error.data) {
+    const errorData = result.error.data;
+    // If error.data is a standardized error response, ensure it's properly structured
+    if (
+      typeof errorData === 'object' &&
+      errorData !== null &&
+      'success' in errorData &&
+      (errorData as { success?: boolean }).success === false
+    ) {
+      // Error is already properly formatted, just return it
+      return result;
+    }
+  }
+
   return result;
 };
 
@@ -186,6 +201,8 @@ export const baseApi = createApi({
     'Settings',
     'Quotations',
     'Quotation',
+    'Permissions',
+    'UserPermissions',
   ],
   endpoints: () => ({}),
 });

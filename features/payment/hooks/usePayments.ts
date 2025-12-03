@@ -4,7 +4,6 @@ import {
   useGetPaymentsQuery,
   useGetPaymentQuery,
   useGetPaymentStatisticsQuery,
-  useDeletePaymentMutation,
 } from '@/features/payment/api/paymentApi';
 import type {
   Payment,
@@ -12,6 +11,7 @@ import type {
   PaymentStatistics,
   PaymentFilters,
 } from '@/features/payment/types';
+import { extractErrorMessage } from '@/lib/utils/api-error-handler';
 
 export function usePayments(filters?: PaymentFilters) {
   const query = useGetPaymentsQuery(filters || {});
@@ -48,9 +48,7 @@ export function usePayments(filters?: PaymentFilters) {
     payments,
     total,
     loading: query.isLoading,
-    error: query.error
-      ? (query.error as { message?: string })?.message || 'An error occurred'
-      : null,
+    error: query.error ? extractErrorMessage(query.error) : null,
     refetch: query.refetch,
   };
 }

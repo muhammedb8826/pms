@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { USER_GENDERS, USER_ROLES, User, UserGender, UserRole } from '@/features/user/types';
+import { USER_GENDERS, USER_ROLES, User, UserGender, UserRole, type UpdateUserInput, type CreateUserInput } from '@/features/user/types';
 import { useCreateUser, useUpdateUser } from '@/features/user/hooks/useUsers';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 
@@ -25,7 +24,8 @@ const baseSchema = z.object({
     .min(1, 'Phone number is required')
     .regex(phoneRegex, 'Enter a valid phone number (7-20 digits, optional + prefix)'),
   address: z.string().optional(),
-  roles: z.array(z.enum(USER_ROLES)).min(1, 'Select at least one role'),
+  // Single role only – backend accepts a single role, not an array
+  role: z.enum(USER_ROLES),
   isActive: z.boolean(),
 });
 
@@ -87,9 +87,9 @@ interface UserFormProps {
 
 type FormErrors = Partial<Record<keyof z.infer<typeof createSchema> | 'form', string>>;
 
-const getInitialRoles = (user?: User | null): UserRole[] => {
-  if (user?.roles && user.roles.length > 0) return user.roles;
-  return ['USER'];
+const getInitialRole = (user?: User | null): UserRole => {
+  if (user?.roles && user.roles.length > 0) return user.roles[0];
+  return 'USER';
 };
 
 export function UserForm({
@@ -108,12 +108,10 @@ export function UserForm({
   const [gender, setGender] = useState<UserGender | ''>(user?.gender ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [address, setAddress] = useState(user?.address ?? '');
-  const [roles, setRoles] = useState<UserRole[]>(getInitialRoles(user));
+  const [role, setRole] = useState<UserRole>(getInitialRole(user));
   const [isActive, setIsActive] = useState<boolean>(user?.isActive ?? true);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [profileFile, setProfileFile] = useState<File | null>(null);
-  const [profilePreview, setProfilePreview] = useState<string | null>(user?.profile ?? null);
   const [errors, setErrors] = useState<FormErrors>({});
 
   const createMutation = useCreateUser();
@@ -133,10 +131,8 @@ export function UserForm({
       setGender(user.gender ?? '');
       setPhone(user.phone ?? '');
       setAddress(user.address ?? '');
-      setRoles(getInitialRoles(user));
+      setRole(getInitialRole(user));
       setIsActive(user.isActive ?? true);
-      setProfilePreview(user.profile ?? null);
-      setProfileFile(null);
       setPassword('');
       setConfirmPassword('');
       setErrors({});
@@ -146,63 +142,7 @@ export function UserForm({
 
   const schema = useMemo(() => (user ? updateSchema : createSchema), [user]);
 
-  const toggleRole = (role: UserRole, checked: boolean) => {
-    setRoles((prev) => {
-      if (checked) {
-        if (prev.includes(role)) return prev;
-        return [...prev, role];
-      }
-      return prev.filter((item) => item !== role);
-    });
-  };
-
-  const handleProfileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, form: 'Only image files are allowed' }));
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, form: 'Image must be less than 5 MB' }));
-      return;
-    }
-    setProfileFile(file);
-    setErrors((prev) => ({ ...prev, form: undefined }));
-    const reader = new FileReader();
-    reader.onload = () => {
-      setProfilePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const buildFormData = (data: Record<string, unknown>) => {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (
-        value === undefined ||
-        value === null ||
-        (typeof value === 'string' && value.trim().length === 0)
-      ) {
-        return;
-      }
-      if (key === 'roles' && Array.isArray(value)) {
-        if (value.length === 0) return;
-        value.forEach((role) => formData.append('roles[]', role));
-        return;
-      }
-      if (key === 'isActive' && typeof value === 'boolean') {
-        formData.append('isActive', value ? 'true' : 'false');
-        return;
-      }
-      if (value instanceof File) {
-        formData.append(key, value);
-        return;
-      }
-      formData.append(key, String(value));
-    });
-    return formData;
-  };
+  // No profile upload here; avatar is handled via account profile module
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -217,7 +157,7 @@ export function UserForm({
       gender: gender || undefined,
       phone,
       address: address || undefined,
-      roles,
+      role,
       isActive,
       password: user ? password : undefined,
       confirmPassword: user ? confirmPassword : undefined,
@@ -245,7 +185,7 @@ export function UserForm({
       gender: parsed.data.gender,
       phone: parsed.data.phone,
       address: parsed.data.address,
-      roles: parsed.data.roles,
+      role: parsed.data.role,
       isActive: parsed.data.isActive,
     };
 
@@ -257,24 +197,18 @@ export function UserForm({
       payload.confirmPassword = confirmPassword;
     }
 
-    if (profileFile) {
-      payload.profile = profileFile;
-    }
-
     try {
       if (user) {
-        const formData = buildFormData(payload);
-        await updateMutation.mutateAsync({ id: user.id, data: formData });
+        // For updates, send plain JSON payload (no FormData)
+        await updateMutation.mutateAsync({ id: user.id, data: payload as UpdateUserInput });
         handleApiSuccess('User updated successfully');
       } else {
-        const formData = buildFormData(payload);
-        await createMutation.mutateAsync(formData);
+        // For creation, send plain JSON (no profile upload, no FormData)
+        await createMutation.mutateAsync(payload as unknown as CreateUserInput);
         handleApiSuccess('User created successfully');
         setPassword('');
         setConfirmPassword('');
-        setProfileFile(null);
-        setProfilePreview(null);
-        setRoles(getInitialRoles());
+        setRole(getInitialRole());
         setIsActive(true);
       }
       onSuccess();
@@ -287,32 +221,9 @@ export function UserForm({
     }
   }
 
-  const displayName = `${firstName} ${lastName ?? ''}`.trim() || email || 'User';
-  const initials = displayName
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       {errors.form && <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">{errors.form}</div>}
-
-      <div className="flex items-center gap-4">
-        <Avatar className="h-16 w-16 rounded-lg">
-          {profilePreview ? (
-            <AvatarImage src={profilePreview} alt={displayName} />
-          ) : (
-            <AvatarFallback className="rounded-lg text-base">{initials || 'US'}</AvatarFallback>
-          )}
-        </Avatar>
-        <div className="flex flex-col gap-2">
-          <Label className="text-sm font-medium">Profile photo</Label>
-          <Input type="file" accept="image/*" onChange={handleProfileChange} />
-          <p className="text-xs text-muted-foreground">JPG, PNG, WEBP, GIF, BMP, SVG up to 5 MB.</p>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
@@ -400,21 +311,22 @@ export function UserForm({
         {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
       </div>
 
-  <div className="space-y-2">
-    <Label>Roles *</Label>
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {USER_ROLES.map((role) => (
-        <label key={role} className="flex items-center gap-2 rounded-md border p-2 text-sm">
-          <Checkbox
-            checked={roles.includes(role)}
-            onCheckedChange={(checked) => toggleRole(role, Boolean(checked))}
-          />
-          <span className="capitalize">{role.replace(/_/g, ' ').toLowerCase()}</span>
-        </label>
-      ))}
-    </div>
-    {errors.roles && <p className="text-xs text-destructive">{errors.roles}</p>}
-  </div>
+      <div className="space-y-1">
+        <Label htmlFor="role">Role *</Label>
+        <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+          <SelectTrigger id="role">
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent>
+            {USER_ROLES.map((r) => (
+              <SelectItem key={r} value={r}>
+                {r.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase())}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
+      </div>
 
       <div className="flex items-center gap-2">
         <Checkbox id="isActive" checked={isActive} onCheckedChange={(checked) => setIsActive(Boolean(checked))} />

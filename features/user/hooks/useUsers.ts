@@ -9,14 +9,7 @@ import {
   useGetUsersQuery,
   useUpdateUserMutation,
 } from '@/features/user/api/userApi';
-import type {
-  CreateUserInput,
-  PaginatedUsers,
-  UpdateUserInput,
-  User,
-  UserFilters,
-  UserRole,
-} from '@/features/user/types';
+import type { PaginatedUsers, UpdateUserInput, User, UserFilters, UserRole } from '@/features/user/types';
 
 type WrappedResponse<T> = { success?: boolean; data?: T };
 
@@ -40,13 +33,58 @@ export function useUsers(page = 1, limit = 10, filters?: Omit<UserFilters, 'page
   };
 
   const query = useGetUsersQuery(queryFilters);
-  const rawData = unwrapData<PaginatedUsers>(query.data as PaginatedUsers | WrappedResponse<PaginatedUsers> | undefined);
+
+  // Backend may return either:
+  // - PaginatedUsers
+  // - WrappedResponse<PaginatedUsers>
+  // - User[]
+  // - WrappedResponse<User[]>
+  const unwrapped = unwrapData<PaginatedUsers | User[]>(
+    query.data as PaginatedUsers | User[] | WrappedResponse<PaginatedUsers | User[]> | undefined,
+  );
+
+  let normalized: PaginatedUsers | undefined;
+  if (unwrapped) {
+    if (Array.isArray(unwrapped)) {
+      normalized = {
+        users: unwrapped,
+        total: unwrapped.length,
+        page,
+        limit,
+      };
+    } else if ('users' in unwrapped) {
+      normalized = unwrapped;
+    }
+  }
+
+  // Normalize role/roles mismatch between backend and frontend types
+  const normalizedUsers: User[] = (normalized?.users ?? []).map((u) => {
+    const anyUser = u as unknown as User & { role?: UserRole; gender?: string | null };
+    const rolesArray =
+      Array.isArray(anyUser.roles) && anyUser.roles.length > 0
+        ? anyUser.roles
+        : anyUser.role
+          ? [anyUser.role]
+          : [];
+
+    // Normalize gender casing to match UserGender union
+    const gender =
+      anyUser.gender && typeof anyUser.gender === 'string'
+        ? (anyUser.gender.toUpperCase() as User['gender'])
+        : anyUser.gender;
+
+    return {
+      ...anyUser,
+      roles: rolesArray,
+      gender,
+    };
+  });
 
   return {
-    users: rawData?.users ?? [],
-    total: rawData?.total ?? 0,
-    page: rawData?.page ?? page,
-    limit: rawData?.limit ?? limit,
+    users: normalizedUsers,
+    total: normalized?.total ?? 0,
+    page: normalized?.page ?? page,
+    limit: normalized?.limit ?? limit,
     loading: query.isLoading,
     isFetching: query.isFetching,
     error:
@@ -77,7 +115,25 @@ export function useUsersByRole(role?: UserRole) {
 
 export function useUser(id: string | null | undefined) {
   const query = useGetUserQuery(id ?? '', { skip: !id });
-  const data = unwrapData<User>(query.data as User | WrappedResponse<User> | undefined);
+  const raw = unwrapData<User>(query.data as User | WrappedResponse<User> | undefined);
+
+  // Normalize single role → roles array for consistency with User type
+  let data: User | undefined;
+  if (raw) {
+    const anyUser = raw as unknown as User & { role?: UserRole; gender?: string | null };
+    const rolesArray =
+      Array.isArray(anyUser.roles) && anyUser.roles.length > 0
+        ? anyUser.roles
+        : anyUser.role
+          ? [anyUser.role]
+          : [];
+    const gender =
+      anyUser.gender && typeof anyUser.gender === 'string'
+        ? (anyUser.gender.toUpperCase() as User['gender'])
+        : anyUser.gender;
+
+    data = { ...anyUser, roles: rolesArray, gender };
+  }
   return {
     ...query,
     data: data ?? undefined,
