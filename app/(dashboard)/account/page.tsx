@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUpdateProfileMutation, useChangePasswordMutation, useUploadAvatarMutation } from "@/features/auth/api/accountApi";
 import type { User as AuthUser } from "@/features/auth/types";
@@ -433,8 +434,7 @@ export default function AccountPage() {
             >
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">Current password</label>
-                <Input
-                  type="password"
+                <PasswordInput
                   value={passwordForm.currentPassword}
                   onChange={(event) =>
                     setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))
@@ -445,8 +445,7 @@ export default function AccountPage() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">New password</label>
-                  <Input
-                    type="password"
+                  <PasswordInput
                     value={passwordForm.newPassword}
                     onChange={(event) =>
                       setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))
@@ -456,8 +455,7 @@ export default function AccountPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Confirm password</label>
-                  <Input
-                    type="password"
+                  <PasswordInput
                     value={passwordForm.confirmNewPassword}
                     onChange={(event) =>
                       setPasswordForm((prev) => ({ ...prev, confirmNewPassword: event.target.value }))

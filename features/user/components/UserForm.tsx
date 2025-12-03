@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -273,12 +274,12 @@ export function UserForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="password">Password *</Label>
-            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={Boolean(errors.password)} />
+            <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={Boolean(errors.password)} />
             {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
           </div>
           <div className="space-y-1">
             <Label htmlFor="confirmPassword">Confirm password *</Label>
-            <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} aria-invalid={Boolean(errors.confirmPassword)} />
+            <PasswordInput id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} aria-invalid={Boolean(errors.confirmPassword)} />
             {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
           </div>
         </div>
@@ -286,16 +287,16 @@ export function UserForm({
 
       {user && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="password">New password</Label>
-            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={Boolean(errors.password)} />
-            {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="confirmPassword">Confirm new password</Label>
-            <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} aria-invalid={Boolean(errors.confirmPassword)} />
-            {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
-          </div>
+               <div className="space-y-1">
+                 <Label htmlFor="password">New password</Label>
+                 <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={Boolean(errors.password)} />
+                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+               </div>
+               <div className="space-y-1">
+                 <Label htmlFor="confirmPassword">Confirm new password</Label>
+                 <PasswordInput id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} aria-invalid={Boolean(errors.confirmPassword)} />
+                 {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
+               </div>
         </div>
       )}
 

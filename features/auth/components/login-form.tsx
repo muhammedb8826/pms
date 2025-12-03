@@ -20,6 +20,7 @@ import {
   FieldError,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { useAuth } from "@/features/auth/contexts/AuthContext"
 import { handleApiError } from '@/lib/utils/api-error-handler';
 
@@ -110,9 +111,8 @@ export function LoginForm({
                     Forgot your password?
                   </a>
                 </div>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
