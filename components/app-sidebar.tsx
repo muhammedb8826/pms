@@ -197,7 +197,9 @@ const data = {
       title: "Pharmacy Settings",
       url: "/settings/pharmacy",
       icon: IconSettings,
-      permissions: ["settings.read", "settings.update"],
+      // Any authenticated user can read settings; only users with settings.update
+      // should see the Settings page link in the sidebar.
+      permissions: ["settings.update"],
     },
     {
       title: "Unit Categories",
@@ -275,10 +277,107 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     [isAdmin, normalizedPermissions]
   )
 
+  // Helper to build grouped nav items for NavMain while preserving permission filtering.
+  const buildNavMainItems = React.useCallback(
+    (items: typeof data.navMain) => {
+      // Index allowed items by URL for quick lookup
+      const byUrl = new Map(items.map((item) => [item.url, item]))
+
+      const makeGroup = (
+        title: string,
+        icon: (typeof IconDashboard),
+        urls: string[]
+      ) => {
+        const children = urls
+          .map((url) => byUrl.get(url))
+          .filter(Boolean) as typeof data.navMain
+
+        if (children.length === 0) return null
+
+        // If there is only a single child and its title matches the group title,
+        // treat it as a simple direct link (no collapsible group).
+        if (children.length === 1 && children[0].title === title) {
+          const child = children[0]
+          return {
+            title: child.title,
+            url: child.url,
+            icon: child.icon ?? icon,
+          }
+        }
+
+        return {
+          title,
+          url: children[0].url,
+          icon,
+          items: children.map((c) => ({
+            title: c.title,
+            url: c.url,
+          })),
+        }
+      }
+
+      const groups = [
+        // Single dashboard entry
+        makeGroup("Dashboard", IconDashboard, ["/dashboard"]),
+        // Inventory & products
+        makeGroup("Inventory", IconFolder, [
+          "/products",
+          "/batches",
+          "/categories",
+          "/manufacturers",
+        ]),
+        // Sales and quotations
+        makeGroup("Sales & Quotations", IconChartBar, [
+          "/quotations",
+          "/sales",
+        ]),
+        // Purchasing & requisition
+        makeGroup("Purchasing", IconChartBar, [
+          "/purchases",
+          "/requisition",
+        ]),
+        // People
+        makeGroup("People", IconUsers, [
+          "/customers",
+          "/suppliers",
+          "/users",
+        ]),
+        // Finance
+        makeGroup("Finance", IconCurrencyDollar, [
+          "/payments",
+          "/payment-methods",
+          "/credits",
+          "/commissions",
+        ]),
+      ].filter(Boolean) as {
+        title: string
+        url: string
+        icon: typeof IconDashboard
+        items?: { title: string; url: string }[]
+      }[]
+
+      // Include any allowed items that were not part of the predefined groups
+      const groupedUrls = new Set(
+        groups.flatMap((g) => (g.items ? g.items.map((i) => i.url) : [g.url]))
+      )
+
+      const remaining = items.filter((item) => !groupedUrls.has(item.url))
+
+      const remainingAsDirect = remaining.map((item) => ({
+        title: item.title,
+        url: item.url,
+        icon: item.icon,
+      }))
+
+      return [...groups, ...remainingAsDirect]
+    },
+    []
+  )
+
   const navMain = React.useMemo(() => {
     // If permissions couldn't be loaded, show minimal safe navigation
     if (!permissionsLoaded) {
-      return data.navMain.filter((item) => {
+      const minimal = data.navMain.filter((item) => {
         // Show Dashboard and items without permissions requirement
         if (item.title === "Dashboard") return true
         if (!item.permissions || item.permissions.length === 0) return true
@@ -286,15 +385,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         if (item.url === "/users") return false
         return false
       })
+      return buildNavMainItems(minimal)
     }
 
     // Filter items based on their permissions array
     // Empty permissions array means always visible
-    return data.navMain.filter((item) => {
+    const allowed = data.navMain.filter((item) => {
       if (!item.permissions || item.permissions.length === 0) return true
       return hasPermission(item.permissions)
     })
-  }, [permissionsLoaded, hasPermission])
+    return buildNavMainItems(allowed)
+  }, [permissionsLoaded, permissionCodes, user?.id, hasPermission, buildNavMainItems])
 
   const navSecondary = React.useMemo(() => {
     // If permissions couldn't be loaded, show minimal safe navigation

@@ -13,7 +13,9 @@ export const permissionApi = baseApi.injectEndpoints({
     }),
 
     // Get current user's permissions (self)
-    getCurrentUserPermissions: builder.query<string[], void>({
+    // We accept a userId argument purely to scope the RTK Query cache per user,
+    // but the backend endpoint always uses /permissions/me and ignores the argument.
+    getCurrentUserPermissions: builder.query<string[], string | void>({
       query: () => '/permissions/me',
       transformResponse: (resp: unknown) =>
         unwrapResponseData<string[]>(resp) ?? (resp as string[]),

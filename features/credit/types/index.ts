@@ -33,11 +33,13 @@ export interface CustomerSummary {
 export interface PurchaseSummary {
   id: string;
   invoiceNo: string;
+  status?: string; // e.g. PENDING, COMPLETED, CANCELLED
 }
 
 export interface SaleSummary {
   id: string;
   invoiceNo?: string;
+  status?: string; // e.g. PENDING, COMPLETED, CANCELLED
 }
 
 export interface PaymentMethodSummary {

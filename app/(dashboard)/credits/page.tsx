@@ -422,7 +422,19 @@ export default function CreditsPage() {
         ),
         cell: ({ row }) => {
           const credit = row.original;
-          const canPay = credit.status !== CreditStatusEnum.PAID && parseFloat(credit.balanceAmount) > 0;
+          const purchaseStatus = credit.purchase?.status;
+          const saleStatus = credit.sale?.status;
+          const isLinkedPendingOrCancelled =
+            purchaseStatus === "PENDING" ||
+            purchaseStatus === "CANCELLED" ||
+            saleStatus === "PENDING" ||
+            saleStatus === "CANCELLED";
+          const canPay =
+            credit.status !== CreditStatusEnum.PAID &&
+            parseFloat(credit.balanceAmount) > 0 &&
+            !isLinkedPendingOrCancelled;
+          const paymentsCount = Array.isArray(credit.payments) ? credit.payments.length : 0;
+          const hasPayments = paymentsCount > 0;
           return (
             <div 
               className="flex justify-end"
@@ -471,9 +483,28 @@ export default function CreditsPage() {
                     onSelect={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
-                      if (canPay) {
-                        handleRecordPayment(credit);
+                      if (!canPay) {
+                        // Frontend hint for blocked states; backend still enforces exact messages.
+                        let message: string | null = null;
+                        if (credit.status === CreditStatusEnum.PAID) {
+                          message = "Credit is already fully paid";
+                        } else if (isLinkedPendingOrCancelled) {
+                          if (purchaseStatus === "PENDING") {
+                            message = "Cannot pay credit for a pending purchase.";
+                          } else if (purchaseStatus === "CANCELLED") {
+                            message = "Cannot pay credit for a cancelled purchase.";
+                          } else if (saleStatus === "PENDING") {
+                            message = "Cannot pay credit for a pending sale.";
+                          } else if (saleStatus === "CANCELLED") {
+                            message = "Cannot pay credit for a cancelled sale.";
+                          }
+                        }
+                        if (message) {
+                          handleApiError(message, { showToast: true, logError: false });
+                        }
+                        return;
                       }
+                      handleRecordPayment(credit);
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -489,6 +520,11 @@ export default function CreditsPage() {
                     onSelect={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
+                      if (hasPayments) {
+                        const message = `Cannot delete credit with ${paymentsCount} payment(s). Refund or delete payments first.`;
+                        handleApiError(message, { showToast: true, logError: false });
+                        return;
+                      }
                       // Prevent row click by temporarily disabling pointer events on the row
                       const target = event.target as HTMLElement;
                       const row = target.closest('tr');
@@ -503,6 +539,11 @@ export default function CreditsPage() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (hasPayments) {
+                        const message = `Cannot delete credit with ${paymentsCount} payment(s). Refund or delete payments first.`;
+                        handleApiError(message, { showToast: true, logError: false });
+                        return;
+                      }
                       // Prevent row click by temporarily disabling pointer events on the row
                       const target = e.target as HTMLElement;
                       const row = target.closest('tr');
@@ -596,7 +637,17 @@ export default function CreditsPage() {
             return `${name} - ${credit.type}`;
           }}
           renderDetailsFooter={(credit, onClose) => {
-            const canPay = credit.status !== CreditStatusEnum.PAID && parseFloat(credit.balanceAmount) > 0;
+            const purchaseStatus = credit.purchase?.status;
+            const saleStatus = credit.sale?.status;
+            const isLinkedPendingOrCancelled =
+              purchaseStatus === "PENDING" ||
+              purchaseStatus === "CANCELLED" ||
+              saleStatus === "PENDING" ||
+              saleStatus === "CANCELLED";
+            const canPay =
+              credit.status !== CreditStatusEnum.PAID &&
+              parseFloat(credit.balanceAmount) > 0 &&
+              !isLinkedPendingOrCancelled;
             return (
               <div className="flex flex-col gap-2 w-full">
                 <Button
@@ -629,6 +680,11 @@ export default function CreditsPage() {
                   <IconCurrencyDollar className="mr-2 size-4" />
                   Record Payment
                 </Button>
+                {isLinkedPendingOrCancelled && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Credits for pending or cancelled purchases/sales cannot be paid. Use the purchase or sale workflow (cancel/refund) instead.
+                  </p>
+                )}
               </div>
             );
           }}
@@ -744,10 +800,24 @@ export default function CreditsPage() {
           }
         }}
       >
+        {(() => {
+          const creditToDelete = confirmDeleteId
+            ? credits.find((c) => c.id === confirmDeleteId)
+            : null;
+          const paymentsCount = creditToDelete?.payments ? creditToDelete.payments.length : 0;
+          const hasPayments = paymentsCount > 0;
+          return (
         <AlertDialogContent>
           <AlertHeader>
             <AlertDialogTitle>Delete Credit</AlertDialogTitle>
-            <AlertDesc>Are you sure you want to delete this credit? This action cannot be undone.</AlertDesc>
+            <AlertDesc>
+              Are you sure you want to delete this credit? This action cannot be undone.
+              <br />
+              <br />
+              <span className="text-sm text-muted-foreground">
+                Credits with payments cannot be deleted. Credits linked to non-pending purchases or sales must be handled via the purchase or sale workflow (cancel/refund).
+              </span>
+            </AlertDesc>
           </AlertHeader>
           <AlertFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -758,12 +828,14 @@ export default function CreditsPage() {
                 }
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMutation.isPending}
+              disabled={deleteMutation.isPending || hasPayments}
             >
               Delete
             </AlertDialogAction>
           </AlertFooter>
         </AlertDialogContent>
+          );
+        })()}
       </AlertDialog>
     </div>
   );

@@ -175,6 +175,7 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const isCompleted = purchase?.status === 'COMPLETED';
   const isCancelled = purchase?.status === 'CANCELLED';
+  const hasPayments = purchase ? Number(purchase.paidAmount ?? 0) > 0 : false;
 
   useEffect(() => {
     onSubmittingChange?.(isSubmitting);
@@ -243,6 +244,22 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
     setErrors({});
     setItemErrors({});
     onErrorChange?.(null);
+
+    // Frontend guard: paidAmount cannot exceed totalAmount
+    if (paidAmount > totalAmount) {
+      const msg = 'Paid amount cannot exceed total amount';
+      setErrors((prev) => ({ ...prev, form: msg }));
+      onErrorChange?.(msg);
+      return;
+    }
+
+    // Frontend guard: when editing and there is already a paidAmount, do not allow reducing it
+    if (purchase && typeof purchase.paidAmount === 'number' && purchase.paidAmount > 0 && paidAmount < purchase.paidAmount) {
+      const msg = 'Cannot reduce paid amount when payments exist. Delete or refund payments first.';
+      setErrors((prev) => ({ ...prev, form: msg }));
+      onErrorChange?.(msg);
+      return;
+    }
 
     // Validate items
     const validatedItems: CreatePurchaseItemDto[] = [];
@@ -498,6 +515,7 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
                         disabled={isCompleted || isCancelled}
                         className="w-full min-w-[140px]"
                         aria-invalid={Boolean(itemErrors[index]?.expiryDate)}
+                        min={new Date().toISOString().split('T')[0]}
                       />
                       {itemErrors[index]?.expiryDate && (
                         <p className="text-xs text-red-600 mt-1">{itemErrors[index].expiryDate}</p>
@@ -623,9 +641,16 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
                   <SelectItem value="PENDING">PENDING</SelectItem>
                   <SelectItem value="COMPLETED">COMPLETED</SelectItem>
                   <SelectItem value="PARTIALLY_RECEIVED">PARTIALLY_RECEIVED</SelectItem>
-                  <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+                  <SelectItem value="CANCELLED" disabled={hasPayments}>
+                    CANCELLED
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              {hasPayments && (
+                <p className="text-xs text-muted-foreground">
+                  Purchases with payments cannot be cancelled. Refund or delete payments first via payment history.
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <label htmlFor="paidAmount" className="block text-sm font-medium">Paid Amount</label>

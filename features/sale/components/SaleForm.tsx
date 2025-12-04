@@ -165,6 +165,24 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
     onErrorChange?.(undefined);
     onSubmittingChange?.(true);
     try {
+      // Frontend guard: paidAmount cannot exceed totalAmount
+      if (paidAmount > totalAmount) {
+        const message = 'Paid amount cannot exceed total amount';
+        onErrorChange?.(message);
+        handleApiError(message, { showToast: true, logError: false });
+        onSubmittingChange?.(false);
+        return;
+      }
+
+      // Frontend guard: when editing and there is already a paidAmount, do not allow reducing it
+      if (sale && typeof sale.paidAmount === 'number' && sale.paidAmount > 0 && paidAmount < Number(sale.paidAmount)) {
+        const message = 'Cannot reduce paid amount when payments exist. Delete or refund payments first.';
+        onErrorChange?.(message);
+        handleApiError(message, { showToast: true, logError: false });
+        onSubmittingChange?.(false);
+        return;
+      }
+
       const parsed = saleSchema.parse({ customerId, date, status, notes: notes || undefined, items });
       // Map items to ensure uomId is included in payload
       const mappedItems: CreateSaleItemDto[] = parsed.items.map((item) => ({
@@ -286,7 +304,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PENDING">PENDING</SelectItem>
+                  {!isCompleted && <SelectItem value="PENDING">PENDING</SelectItem>}
                   <SelectItem value="COMPLETED">COMPLETED</SelectItem>
                   <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                 </SelectContent>

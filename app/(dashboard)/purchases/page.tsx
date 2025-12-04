@@ -357,18 +357,18 @@ export default function Page() {
                         </DropdownMenuItem>
                       </AlertDialogTrigger>
                       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                        <AlertHeader>
-                          <AlertDialogTitle>Delete purchase?</AlertDialogTitle>
-                          <AlertDesc>
-                            This action will permanently delete purchase{' '}
-                            <span className="font-medium">{purchase.invoiceNo}</span>. This cannot be undone.
-                            <br />
-                            <br />
-                            <span className="text-sm text-muted-foreground">
-                              Note: Purchases with payments cannot be deleted. Cancel the purchase instead, or delete payments first via payment history.
-                            </span>
-                          </AlertDesc>
-                        </AlertHeader>
+        <AlertHeader>
+          <AlertDialogTitle>Delete purchase?</AlertDialogTitle>
+          <AlertDesc>
+            This action will permanently delete purchase{' '}
+            <span className="font-medium">{purchase.invoiceNo}</span>. This cannot be undone.
+            <br />
+            <br />
+            <span className="text-sm text-muted-foreground">
+              Note: Purchases with payments cannot be deleted or cancelled. Refund or delete payments first via payment history.
+            </span>
+          </AlertDesc>
+        </AlertHeader>
                         <AlertFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
@@ -442,8 +442,9 @@ export default function Page() {
           detailsDescription={(purchase) => purchase.supplier?.name || ''}
           renderDetailsFooter={(purchase, onClose) => {
             const canEdit = purchase.status !== 'COMPLETED' && purchase.status !== 'CANCELLED';
+            const hasPayments = Number(purchase.paidAmount ?? 0) > 0;
             return (
-              <>
+              <div className="flex w-full flex-col gap-2">
                 {canEdit && (
                   <Button
                     onClick={(e) => {
@@ -460,7 +461,12 @@ export default function Page() {
                     Edit Purchase
                   </Button>
                 )}
-              </>
+                {hasPayments && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Purchases with payments cannot be cancelled. Refund or delete payments first via payment history.
+                  </p>
+                )}
+              </div>
             );
           }}
           headerFilters={
