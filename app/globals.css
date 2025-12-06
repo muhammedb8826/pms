@@ -141,6 +141,39 @@
     background: white !important;
   }
 
+  /* Hide dashboard header when printing */
+  [data-slot="sidebar-inset"] > header {
+    display: none !important;
+  }
+
+  /* Hide sidebar elements when printing (but keep sidebar-wrapper visible as it contains content) */
+  [data-slot="sidebar"],
+  [data-sidebar="sidebar"],
+  [data-slot="sidebar-container"],
+  [data-slot="sidebar-inner"],
+  [data-slot="sidebar-gap"],
+  [data-sidebar="trigger"],
+  [data-sidebar="rail"] {
+    display: none !important;
+  }
+
+  /* Remove padding/margins from SidebarInset when printing, but keep content visible */
+  [data-slot="sidebar-inset"] {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  /* Remove flex layout from sidebar-wrapper when printing to allow content to flow normally */
+  [data-slot="sidebar-wrapper"] {
+    display: block !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  /* Ensure voucher page content is visible and properly styled */
   .voucher-page {
     width: 210mm;
     min-height: 297mm;
@@ -150,6 +183,8 @@
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: white !important;
     color: black !important;
+    display: block !important;
+    visibility: visible !important;
   }
 
   .no-print {

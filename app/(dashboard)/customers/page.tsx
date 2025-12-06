@@ -79,12 +79,26 @@ export default function CustomersPage() {
   };
 
   const renderDetails = useCallback((customer: Customer) => {
+    const isLicensed = customer.customerType === 'LICENSED';
+    const licenseExpired =
+      isLicensed && customer.licenseExpiryDate
+        ? new Date(customer.licenseExpiryDate) < new Date()
+        : false;
+
     return (
       <div className="space-y-6">
         <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 text-sm">
           <div>
             <div className="text-xs text-muted-foreground">Name</div>
             <div className="font-medium text-foreground">{customer.name}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Customer Type</div>
+            <div className="mt-1">
+              <Badge variant={isLicensed ? 'default' : 'outline'}>
+                {customer.customerType === 'LICENSED' ? 'Licensed' : 'Walk-in'}
+              </Badge>
+            </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Phone</div>
@@ -104,6 +118,39 @@ export default function CustomersPage() {
               <Badge variant={getStatusBadgeVariant(customer.status)}>{customer.status}</Badge>
             </div>
           </div>
+          {isLicensed && (
+            <>
+              {customer.licenseIssueDate && (
+                <div>
+                  <div className="text-xs text-muted-foreground">License Issue Date</div>
+                  <div className="text-foreground">
+                    {new Date(customer.licenseIssueDate).toLocaleDateString()}
+                  </div>
+                </div>
+              )}
+              {customer.licenseExpiryDate && (
+                <div>
+                  <div className="text-xs text-muted-foreground">License Expiry Date</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-foreground">
+                      {new Date(customer.licenseExpiryDate).toLocaleDateString()}
+                    </span>
+                    {licenseExpired && (
+                      <Badge variant="destructive" className="text-xs">
+                        Expired
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+              {customer.tinNumber && (
+                <div>
+                  <div className="text-xs text-muted-foreground">TIN Number</div>
+                  <div className="text-foreground">{customer.tinNumber}</div>
+                </div>
+              )}
+            </>
+          )}
           <div>
             <div className="text-xs text-muted-foreground">Created</div>
             <div className="text-foreground">
@@ -132,6 +179,18 @@ export default function CustomersPage() {
       ),
     },
     {
+      accessorKey: 'customerType',
+      header: 'Type',
+      cell: ({ row }) => {
+        const isLicensed = row.original.customerType === 'LICENSED';
+        return (
+          <Badge variant={isLicensed ? 'default' : 'outline'}>
+            {isLicensed ? 'Licensed' : 'Walk-in'}
+          </Badge>
+        );
+      },
+    },
+    {
       accessorKey: 'phone',
       header: 'Phone',
       cell: ({ row }) => (
@@ -146,11 +205,26 @@ export default function CustomersPage() {
       ),
     },
     {
-      accessorKey: 'address',
-      header: 'Address',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground line-clamp-2">{row.original.address || '—'}</span>
-      ),
+      accessorKey: 'licenseExpiryDate',
+      header: 'License Expiry',
+      cell: ({ row }) => {
+        if (row.original.customerType !== 'LICENSED') return <span className="text-sm text-muted-foreground">—</span>;
+        if (!row.original.licenseExpiryDate) return <span className="text-sm text-muted-foreground">—</span>;
+        const expiryDate = new Date(row.original.licenseExpiryDate);
+        const isExpired = expiryDate < new Date();
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`text-sm ${isExpired ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {expiryDate.toLocaleDateString()}
+            </span>
+            {isExpired && (
+              <Badge variant="destructive" className="text-xs">
+                Expired
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'status',
@@ -300,6 +374,8 @@ export default function CustomersPage() {
                   <SelectItem value="email">Email</SelectItem>
                   <SelectItem value="address">Address</SelectItem>
                   <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="customerType">Customer Type</SelectItem>
+                  <SelectItem value="licenseExpiryDate">License Expiry</SelectItem>
                   <SelectItem value="createdAt">Created</SelectItem>
                 </SelectContent>
               </Select>
