@@ -281,7 +281,11 @@ export default function CustomersPage() {
                 <DropdownMenuItem
                   onSelect={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
                     setConfirmDeleteId(customer.id);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
                   }}
                   className="text-destructive focus:text-destructive"
                 >

@@ -262,7 +262,11 @@ export default function SuppliersPage() {
                 <DropdownMenuItem
                   onSelect={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
                     setConfirmDeleteId(supplier.id);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
                   }}
                   className="text-destructive focus:text-destructive"
                 >
