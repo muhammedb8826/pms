@@ -284,6 +284,15 @@ export function handleApiError(
             // Only log if we have non-empty values AND serialized version is not empty
             if (hasNonEmptyValues && !isEmptyObject) {
               console.error('API Error:', filteredLogData);
+            } else if (hasKeys) {
+              // If we have keys but they're all empty, log the structure for debugging
+              console.error('API Error: Empty error object detected. Original error structure:', {
+                hasStatus: typeof errorObj.status === 'number',
+                hasMessage: typeof errorObj.message === 'string',
+                hasData: errorObj.data !== undefined,
+                dataType: typeof errorObj.data,
+                dataKeys: errorObj.data && typeof errorObj.data === 'object' ? Object.keys(errorObj.data as Record<string, unknown>) : [],
+              });
             }
             // Otherwise silent: all values were filtered out or serialized to {}
           }
