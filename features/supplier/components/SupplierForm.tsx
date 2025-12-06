@@ -185,13 +185,13 @@ export function SupplierForm({
     } catch (err: unknown) {
       if (err instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
-        err.errors.forEach((error) => {
+        err.issues.forEach((error) => {
           if (error.path[0]) {
             fieldErrors[error.path[0] as string] = error.message;
           }
         });
         setErrors(fieldErrors);
-        const firstError = err.errors[0]?.message || 'Validation failed';
+        const firstError = err.issues[0]?.message || 'Validation failed';
         onErrorChange?.(firstError);
       } else {
         const msg = handleApiError(err, { defaultMessage: 'Failed to save supplier' });
