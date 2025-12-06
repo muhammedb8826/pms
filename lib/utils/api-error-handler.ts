@@ -76,6 +76,17 @@ export function extractErrorMessage(err: unknown): string {
   const errorObj = err as RTKQueryError;
   const errorData = errorObj.data;
 
+  // Debug: Log the full error structure to understand what we're dealing with
+  if (process.env.NODE_ENV === 'development') {
+    console.log('extractErrorMessage - Full error structure:', {
+      status: errorObj.status,
+      message: errorObj.message,
+      data: errorData,
+      dataType: typeof errorData,
+      dataKeys: errorData && typeof errorData === 'object' ? Object.keys(errorData as Record<string, unknown>) : [],
+    });
+  }
+
   // Special handling for permission errors (403 / FORBIDDEN)
   if (errorObj.status === 403) {
     if (errorData && typeof errorData === 'object' && 'message' in errorData) {
@@ -90,9 +101,40 @@ export function extractErrorMessage(err: unknown): string {
 
   // First, try to extract from error.data if it's a standardized error response
   if (errorData && typeof errorData === 'object') {
+    // Check for message directly in error.data (most common case) - check this FIRST
+    if ('message' in errorData) {
+      const msg = (errorData as { message?: unknown }).message;
+      if (typeof msg === 'string' && msg.trim().length > 0) {
+        return msg;
+      }
+      // Handle array of messages
+      if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === 'string') {
+        return msg[0];
+      }
+    }
+    
+    // Check for nested error.message structure
+    if ('error' in errorData && typeof errorData.error === 'object' && errorData.error !== null) {
+      const nestedError = errorData.error as { message?: string; details?: string };
+      if (nestedError.message && typeof nestedError.message === 'string' && nestedError.message.trim().length > 0) {
+        return nestedError.message;
+      }
+      if (nestedError.details && typeof nestedError.details === 'string' && nestedError.details.trim().length > 0) {
+        return nestedError.details;
+      }
+    }
+    
     const standardizedMessage = extractFromResponse(errorData);
     if (standardizedMessage && standardizedMessage !== 'An error occurred') {
       return standardizedMessage;
+    }
+    
+    // Also check for direct message in error.data when success is false
+    if ('success' in errorData && (errorData as { success?: unknown }).success === false) {
+      const msg = (errorData as { message?: unknown }).message;
+      if (typeof msg === 'string' && msg.trim().length > 0) {
+        return msg;
+      }
     }
   }
 

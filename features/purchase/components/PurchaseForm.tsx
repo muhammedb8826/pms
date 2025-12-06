@@ -171,6 +171,13 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
 
   const createMutation = useCreatePurchase();
   const updateMutation = useUpdatePurchase();
+  
+  // Check for errors in mutation state (in case mutateAsync doesn't throw)
+  useEffect(() => {
+    if (createMutation.error) {
+      console.error('Create purchase mutation error detected:', createMutation.error);
+    }
+  }, [createMutation.error]);
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const isCompleted = purchase?.status === 'COMPLETED';
@@ -369,29 +376,82 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
         
         // Only show success if we reached here without throwing
         handleApiSuccess('Purchase updated successfully');
+        onSuccess();
       } else {
         // For creation, status defaults to PENDING if not provided
         if (!data.status) {
           data.status = 'PENDING';
         }
         
-        // mutateAsync will throw if the request fails
-        await createMutation.mutateAsync(data);
+        // mutateAsync should throw if the request fails (400+ status codes)
+        // Wrap in try-catch to ensure we catch any errors
+        let result;
+        try {
+          result = await createMutation.mutateAsync(data);
+        } catch (mutationError) {
+          // If mutateAsync throws, re-throw to be caught by outer catch
+          console.error('Purchase mutation threw error (caught in inner try-catch):', mutationError);
+          throw mutationError;
+        }
+        
+        // CRITICAL: Check if result indicates failure (success: false)
+        // This handles cases where backend returns 200 OK with success: false
+        if (result && typeof result === 'object' && 'success' in result) {
+          const resultWithSuccess = result as { success?: boolean; message?: string; [key: string]: unknown };
+          if (resultWithSuccess.success === false) {
+            const errorMsg = resultWithSuccess.message || 'Failed to create purchase';
+            console.error('Purchase creation failed - success: false detected in result', { 
+              result, 
+              errorMsg,
+              fullResult: JSON.stringify(result, null, 2)
+            });
+            // Throw error in RTK Query format: { status, data }
+            // The result already contains the full error response with message
+            throw { 
+              status: 400, 
+              data: result // result already has success: false and message
+            };
+          }
+        }
+        
+        // Check mutation error state AFTER calling mutateAsync
+        // Sometimes errors are set in state but don't throw
+        if (createMutation.error) {
+          console.error('Create purchase mutation error detected in state after mutateAsync:', createMutation.error);
+          throw createMutation.error;
+        }
         
         // Only show success if we reached here without throwing
+        console.log('Purchase creation successful, result:', result);
         handleApiSuccess('Purchase created successfully');
+        onSuccess();
       }
-      
-      onSuccess();
     } catch (err: unknown) {
+      // Log the error for debugging
+      console.error('Purchase form submission error:', err);
+      console.error('Purchase form submission error structure:', {
+        type: typeof err,
+        isObject: typeof err === 'object',
+        keys: err && typeof err === 'object' ? Object.keys(err as Record<string, unknown>) : [],
+        status: (err as { status?: unknown })?.status,
+        data: (err as { data?: unknown })?.data,
+        message: (err as { message?: unknown })?.message,
+      });
+      
       // Use global error handler
       const errorMessage = handleApiError(err, {
         defaultMessage: 'Failed to save purchase',
+        showToast: true, // Explicitly ensure toast is shown
       });
+      
+      console.log('Extracted error message:', errorMessage);
       
       // Set form error for display
       setErrors((prev) => ({ ...prev, form: errorMessage }));
       onErrorChange?.(errorMessage);
+      
+      // IMPORTANT: Don't call onSuccess() on error - this prevents navigation/cleanup
+      return;
     }
   }
 

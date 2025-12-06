@@ -8,91 +8,72 @@ import {
   useUpdateSupplierMutation,
   useDeleteSupplierMutation,
 } from '@/features/supplier/api/supplierApi';
-import type { Supplier, PaginatedSuppliers } from '@/features/supplier/types';
+import type { Supplier, PaginatedSuppliers, UpdateSupplierDto, CreateSupplierDto } from '@/features/supplier/types';
+import { extractErrorMessage } from '@/lib/utils/api-error-handler';
 
-export function useSuppliers(page = 1, limit = 10, options?: { search?: string; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }) {
-  const query = useGetSuppliersQuery({
-    page,
-    limit,
-    search: options?.search,
-    sortBy: options?.sortBy,
-    sortOrder: options?.sortOrder,
-  });
+export function useSuppliers(
+  page = 1,
+  limit = 10,
+  options?: { search?: string; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }
+) {
+  const query = useGetSuppliersQuery({ page, limit, search: options?.search, sortBy: options?.sortBy, sortOrder: options?.sortOrder });
 
-  // Handle different API response formats:
-  // - Direct: { suppliers: [...], total: ... }
-  // - Wrapped: { success: true, data: { suppliers: [...], total: ... } }
-  type WrappedResponse = {
-    success: boolean;
-    data: PaginatedSuppliers;
-  };
-  
-  const rawData = query.data as PaginatedSuppliers | WrappedResponse | undefined;
-  let suppliersArray: Supplier[] = [];
-  let totalCount = 0;
-
-  if (rawData) {
-    // Check if response is wrapped: { success: true, data: { ... } }
-    if ('success' in rawData && rawData.success && rawData.data) {
-      const innerData = rawData.data;
-      suppliersArray = Array.isArray(innerData?.suppliers) ? innerData.suppliers : [];
-      totalCount = innerData?.total ?? 0;
-    } else if (!('success' in rawData) && 'suppliers' in rawData && Array.isArray(rawData.suppliers)) {
-      // Direct format: { suppliers: [...], total: ... }
-      suppliersArray = rawData.suppliers;
-      totalCount = rawData.total ?? 0;
-    } else if (Array.isArray(rawData)) {
-      // Array directly
-      suppliersArray = rawData;
+  type WrappedResponse = { success?: boolean; data?: PaginatedSuppliers };
+  const raw = query.data as PaginatedSuppliers | WrappedResponse | undefined;
+  let suppliers: Supplier[] = [];
+  let total = 0;
+  if (raw) {
+    if ('success' in raw && raw.success && raw.data) {
+      suppliers = raw.data.suppliers ?? [];
+      total = raw.data.total ?? 0;
+    } else if ('suppliers' in raw) {
+      suppliers = raw.suppliers ?? [];
+      total = raw.total ?? 0;
     }
   }
 
   return {
-    suppliers: suppliersArray,
-    total: totalCount,
+    suppliers,
+    total,
     loading: query.isLoading,
-    error: query.error ? (query.error as { message?: string })?.message || 'An error occurred' : null,
+    error: query.error ? extractErrorMessage(query.error) : null,
     refetch: query.refetch,
   };
 }
 
 export function useAllSuppliers(options?: { search?: string; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }) {
-  return useGetAllSuppliersQuery(options || undefined);
+  const query = useGetAllSuppliersQuery(options || undefined);
+  type WR<T> = { success?: boolean; data?: T };
+  const data = query.data as Supplier[] | WR<Supplier[]> | undefined;
+  if (!data) return { ...query, suppliers: [] as Supplier[] };
+  if (Array.isArray(data)) return { ...query, suppliers: data };
+  if ('success' in data && data.success && Array.isArray(data.data)) return { ...query, suppliers: data.data };
+  return { ...query, suppliers: [] as Supplier[] };
 }
 
-export function useSupplier(id: string | undefined) {
-  const query = useGetSupplierQuery(id!, { skip: !id });
-  type WrappedResponse<T> = { success?: boolean; data?: T };
-  const raw = query.data as Supplier | WrappedResponse<Supplier> | undefined;
-  const data = raw && typeof raw === 'object' && 'data' in raw ? (raw as WrappedResponse<Supplier>).data : (raw as Supplier | undefined);
+export function useSupplier(id?: string) {
+  const query = useGetSupplierQuery(id || '', { skip: !id });
+  type Wrapped<T> = { success?: boolean; data?: T };
+  const raw = query.data as Supplier | Wrapped<Supplier> | undefined;
+  const data = raw && typeof raw === 'object' && 'data' in raw ? (raw as Wrapped<Supplier>).data : (raw as Supplier | undefined);
   return { ...query, data } as typeof query & { data: Supplier | undefined };
 }
 
 export function useCreateSupplier() {
-  const [createSupplier, result] = useCreateSupplierMutation();
-  return {
-    mutateAsync: createSupplier,
-    isPending: result.isLoading,
-    ...result,
-  };
+  const [mutate, result] = useCreateSupplierMutation();
+  return { mutateAsync: mutate, isPending: result.isLoading, ...result };
 }
 
 export function useUpdateSupplier() {
-  const [updateSupplier, result] = useUpdateSupplierMutation();
+  const [mutate, result] = useUpdateSupplierMutation();
   return {
-    mutateAsync: ({ id, dto }: { id: string; dto: Parameters<typeof updateSupplier>[0]['data'] }) =>
-      updateSupplier({ id, data: dto }),
+    mutateAsync: ({ id, dto }: { id: string; dto: UpdateSupplierDto }) => mutate({ id, data: dto }),
     isPending: result.isLoading,
     ...result,
   };
 }
 
 export function useDeleteSupplier() {
-  const [deleteSupplier, result] = useDeleteSupplierMutation();
-  return {
-    mutateAsync: deleteSupplier,
-    isPending: result.isLoading,
-    ...result,
-  };
+  const [mutate, result] = useDeleteSupplierMutation();
+  return { mutateAsync: mutate, isPending: result.isLoading, ...result };
 }
-

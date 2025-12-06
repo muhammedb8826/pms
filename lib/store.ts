@@ -14,6 +14,7 @@ import '@/features/quotation/api/quotationApi';
 import '@/features/settings/api/settingsApi';
 import '@/features/permission/api/permissionApi';
 import '@/features/customer/api/customerApi';
+import '@/features/supplier/api/supplierApi';
 
 export const makeStore = () => {
   return configureStore({

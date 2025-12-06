@@ -3,13 +3,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { IconDotsVertical, IconFilePlus, IconPencil, IconSettings } from '@tabler/icons-react';
-import { Supplier } from '@/features/supplier/types';
 import { useSuppliers, useDeleteSupplier } from '@/features/supplier/hooks/useSuppliers';
-import { SupplierForm } from '@/features/supplier/components/SupplierForm';
 import { Button } from '@/components/ui/button';
-import { FormDialog } from '@/components/form-dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FormDialog } from '@/components/form-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,41 +18,52 @@ import {
   AlertDialogHeader as AlertHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DashboardDataTable } from '@/components/dashboard-data-table';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { DashboardDataTable } from '@/components/dashboard-data-table';
+import SupplierForm from '@/features/supplier/components/SupplierForm';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
+import type { Supplier } from '@/features/supplier/types';
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-export default function Page() {
+export default function SuppliersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<string>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const { suppliers, total, loading, error, refetch } = useSuppliers(page, pageSize, {
-    search,
-    sortBy,
-    sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
-  });
+  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
+  const { suppliers, total, loading, error, refetch } = useSuppliers(page, pageSize, { search, sortBy, sortOrder });
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Supplier | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const deleteMutation = useDeleteSupplier();
 
-  const pageCount = useMemo(() => {
-    if (pageSize === 0) return 1;
-    return Math.max(1, Math.ceil(total / pageSize));
-  }, [total, pageSize]);
+  const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize) || 1), [total, pageSize]);
+
+  const editingSupplier = useMemo(() => {
+    return editingId ? suppliers.find((s) => s.id === editingId) ?? null : null;
+  }, [editingId, suppliers]);
+
+  const handleEdit = useCallback((supplier: Supplier) => {
+    setEditingId(supplier.id);
+    setDialogOpen(true);
+  }, []);
 
   const handleDelete = useCallback(
     async (id: string) => {
       try {
         await deleteMutation.mutateAsync(id);
-        handleApiSuccess('Supplier deleted');
+        handleApiSuccess('Supplier deleted successfully');
         refetch();
       } catch (err) {
         handleApiError(err, { defaultMessage: 'Failed to delete supplier' });
@@ -65,18 +74,27 @@ export default function Page() {
     [deleteMutation, refetch],
   );
 
-  const handleEdit = useCallback((supplier: Supplier) => {
-    setEditing(supplier);
-    setDialogOpen(true);
-  }, []);
-
   const renderDetails = useCallback((supplier: Supplier) => {
+    const isLicensed = supplier.supplierType === 'LICENSED';
+    const licenseExpired =
+      isLicensed && supplier.licenseExpiryDate
+        ? new Date(supplier.licenseExpiryDate) < new Date()
+        : false;
+
     return (
       <div className="space-y-6">
         <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 text-sm">
           <div>
             <div className="text-xs text-muted-foreground">Name</div>
             <div className="font-medium text-foreground">{supplier.name}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Supplier Type</div>
+            <div className="mt-1">
+              <Badge variant={isLicensed ? 'default' : 'outline'}>
+                {supplier.supplierType === 'LICENSED' ? 'Licensed' : 'Walk-in'}
+              </Badge>
+            </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Contact</div>
@@ -90,6 +108,39 @@ export default function Page() {
             <div className="text-xs text-muted-foreground">Address</div>
             <div className="text-foreground">{supplier.address || '—'}</div>
           </div>
+          {isLicensed && (
+            <>
+              {supplier.licenseIssueDate && (
+                <div>
+                  <div className="text-xs text-muted-foreground">License Issue Date</div>
+                  <div className="text-foreground">
+                    {new Date(supplier.licenseIssueDate).toLocaleDateString()}
+                  </div>
+                </div>
+              )}
+              {supplier.licenseExpiryDate && (
+                <div>
+                  <div className="text-xs text-muted-foreground">License Expiry Date</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-foreground">
+                      {new Date(supplier.licenseExpiryDate).toLocaleDateString()}
+                    </span>
+                    {licenseExpired && (
+                      <Badge variant="destructive" className="text-xs">
+                        Expired
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+              {supplier.tinNumber && (
+                <div>
+                  <div className="text-xs text-muted-foreground">TIN Number</div>
+                  <div className="text-foreground">{supplier.tinNumber}</div>
+                </div>
+              )}
+            </>
+          )}
           <div>
             <div className="text-xs text-muted-foreground">Created</div>
             <div className="text-foreground">
@@ -103,28 +154,6 @@ export default function Page() {
             </div>
           </div>
         </div>
-        {supplier.batches && supplier.batches.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Batches ({supplier.batches.length})</span>
-              <Badge variant="outline">{supplier.batches.length}</Badge>
-            </div>
-            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              This supplier has {supplier.batches.length} batch(es).
-            </div>
-          </div>
-        )}
-        {supplier.purchases && supplier.purchases.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Purchases ({supplier.purchases.length})</span>
-              <Badge variant="outline">{supplier.purchases.length}</Badge>
-            </div>
-            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              This supplier has {supplier.purchases.length} purchase(s).
-            </div>
-          </div>
-        )}
       </div>
     );
   }, []);
@@ -138,6 +167,18 @@ export default function Page() {
           {row.original.name}
         </span>
       ),
+    },
+    {
+      accessorKey: 'supplierType',
+      header: 'Type',
+      cell: ({ row }) => {
+        const isLicensed = row.original.supplierType === 'LICENSED';
+        return (
+          <Badge variant={isLicensed ? 'default' : 'outline'}>
+            {isLicensed ? 'Licensed' : 'Walk-in'}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: 'contact',
@@ -154,11 +195,26 @@ export default function Page() {
       ),
     },
     {
-      accessorKey: 'address',
-      header: 'Address',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground line-clamp-2">{row.original.address || '—'}</span>
-      ),
+      accessorKey: 'licenseExpiryDate',
+      header: 'License Expiry',
+      cell: ({ row }) => {
+        if (row.original.supplierType !== 'LICENSED') return <span className="text-sm text-muted-foreground">—</span>;
+        if (!row.original.licenseExpiryDate) return <span className="text-sm text-muted-foreground">—</span>;
+        const expiryDate = new Date(row.original.licenseExpiryDate);
+        const isExpired = expiryDate < new Date();
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`text-sm ${isExpired ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {expiryDate.toLocaleDateString()}
+            </span>
+            {isExpired && (
+              <Badge variant="destructive" className="text-xs">
+                Expired
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -224,12 +280,6 @@ export default function Page() {
     return <div className="p-4 text-sm text-destructive">Error: {error}</div>;
   }
 
-  function onFormSuccess() {
-    setDialogOpen(false);
-    setEditing(null);
-    refetch();
-  }
-
   return (
     <div className="flex flex-col gap-4 p-4 overflow-x-hidden">
       <div className="flex flex-col gap-4 rounded-xl border bg-background p-4 shadow-sm">
@@ -239,7 +289,7 @@ export default function Page() {
             <p className="text-sm text-muted-foreground">Manage supplier records and contact details.</p>
             <p className="mt-1 text-xs text-muted-foreground">Total suppliers: {total}</p>
           </div>
-          <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+          <Button onClick={() => { setEditingId(null); setDialogOpen(true); }}>
             <IconFilePlus className="mr-2 size-4" />
             Add Supplier
           </Button>
@@ -284,7 +334,7 @@ export default function Page() {
           headerFilters={
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Input
-                placeholder="Search suppliers..."
+                placeholder="Search..."
                 className="w-full min-w-0 sm:w-48"
                 value={search}
                 onChange={(e) => {
@@ -304,19 +354,21 @@ export default function Page() {
                   <SelectItem value="contact">Contact</SelectItem>
                   <SelectItem value="email">Email</SelectItem>
                   <SelectItem value="address">Address</SelectItem>
+                  <SelectItem value="supplierType">Supplier Type</SelectItem>
+                  <SelectItem value="licenseExpiryDate">License Expiry</SelectItem>
                   <SelectItem value="createdAt">Created</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={sortOrder} onValueChange={(v) => {
-                setSortOrder((v || 'asc') as 'asc' | 'desc');
+                setSortOrder((v || 'ASC') as 'ASC' | 'DESC');
                 setPage(1);
               }}>
                 <SelectTrigger className="w-full sm:w-32">
                   <SelectValue placeholder="Order" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="asc">Asc</SelectItem>
-                  <SelectItem value="desc">Desc</SelectItem>
+                  <SelectItem value="ASC">ASC</SelectItem>
+                  <SelectItem value="DESC">DESC</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -329,12 +381,12 @@ export default function Page() {
         onOpenChange={(o) => {
           setDialogOpen(o);
           if (!o) {
+            setEditingId(null);
             setFormError(null);
             setFormSubmitting(false);
-            setEditing(null);
           }
         }}
-        title={editing ? 'Edit Supplier' : 'Create Supplier'}
+        title={editingId ? 'Edit Supplier' : 'Add Supplier'}
         size="2xl"
         error={formError}
         footer={
@@ -344,24 +396,28 @@ export default function Page() {
               variant="outline"
               onClick={() => {
                 setDialogOpen(false);
-                setEditing(null);
+                setEditingId(null);
               }}
               disabled={formSubmitting}
             >
               Cancel
             </Button>
             <Button type="submit" form="supplier-form" disabled={formSubmitting}>
-              {formSubmitting ? 'Saving…' : editing ? 'Update' : 'Create'}
+              {formSubmitting ? 'Saving…' : editingId ? 'Update' : 'Create'}
             </Button>
           </>
         }
       >
         <SupplierForm
-          supplier={editing}
-          onSuccess={onFormSuccess}
+          supplier={editingSupplier}
+          onSuccess={() => {
+            setDialogOpen(false);
+            setEditingId(null);
+            refetch();
+          }}
           onCancel={() => {
             setDialogOpen(false);
-            setEditing(null);
+            setEditingId(null);
           }}
           onErrorChange={setFormError}
           onSubmittingChange={setFormSubmitting}
