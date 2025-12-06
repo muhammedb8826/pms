@@ -198,173 +198,76 @@ export function handleApiError(
 ): string {
   const { defaultMessage = 'Operation failed', showToast = true, logError = true } = options || {};
 
-  if (logError) {
-    try {
-      if (err === null || err === undefined) {
-        console.error('API Error: null or undefined');
-      } else if (typeof err === 'object' && err !== null) {
-        const errorObj = err as RTKQueryError;
-        // Extract meaningful information from RTK Query error structure
-        const logData: Record<string, unknown> = {};
-        
-        // Only add status if it's a valid number
-        if (typeof errorObj.status === 'number' && !isNaN(errorObj.status)) {
-          logData.status = errorObj.status;
-        }
-        
-        // Only add message if it's a non-empty string
-        if (typeof errorObj.message === 'string' && errorObj.message.trim().length > 0) {
-          logData.message = errorObj.message;
-        }
-        
-        // Process error.data if it exists
-        if (errorObj.data !== undefined && errorObj.data !== null) {
-          if (typeof errorObj.data === 'object') {
-            // Extract message from error.data if it's an object
-            if ('message' in errorObj.data) {
-              const msg = (errorObj.data as { message?: unknown }).message;
-              if (typeof msg === 'string' && msg.trim().length > 0) {
-                logData.errorMessage = msg;
+        if (logError) {
+          try {
+            if (err === null || err === undefined) {
+              console.error('API Error: null or undefined');
+            } else if (typeof err === 'object' && err !== null) {
+              const errorObj = err as RTKQueryError;
+              
+              // Simplified logging - just log the key fields directly
+              const logData: Record<string, unknown> = {};
+              
+              if (typeof errorObj.status === 'number') {
+                logData.status = errorObj.status;
               }
-            }
-            // Also check for error code
-            if ('error' in errorObj.data && typeof errorObj.data.error === 'object' && errorObj.data.error !== null) {
-              const errorCode = (errorObj.data.error as { code?: unknown }).code;
-              if (errorCode !== undefined && errorCode !== null && errorCode !== '') {
-                logData.errorCode = errorCode;
+              
+              if (typeof errorObj.message === 'string' && errorObj.message.trim().length > 0) {
+                logData.message = errorObj.message;
               }
-            }
-            // Check if data object has other meaningful properties
-            const dataObj = errorObj.data as Record<string, unknown>;
-            const dataKeys = Object.keys(dataObj).filter(key => {
-              const val = dataObj[key];
-              return val !== undefined && val !== null && val !== '';
-            });
-            if (dataKeys.length > 0 && !('message' in errorObj.data && 'error' in errorObj.data)) {
-              // Only add data if it has meaningful keys beyond message/error
-              logData.data = errorObj.data;
-            }
-          } else {
-            // Non-object data (string, number, etc.)
-            logData.data = errorObj.data;
-          }
-        }
-        
-        // Only log if we actually have meaningful data with non-empty values
-        const meaningfulKeys = Object.keys(logData).filter(key => {
-          const val = logData[key];
-          if (val === undefined || val === null || val === '') return false;
-          if (typeof val === 'string' && val.trim().length === 0) return false;
-          if (typeof val === 'object') {
-            // Check if it's an empty object or array
-            if (Array.isArray(val)) {
-              return val.length > 0;
-            }
-            const objKeys = Object.keys(val as Record<string, unknown>);
-            if (objKeys.length === 0) return false;
-            // Check if object has any non-empty values
-            return objKeys.some(k => {
-              const objVal = (val as Record<string, unknown>)[k];
-              return objVal !== undefined && objVal !== null && objVal !== '';
-            });
-          }
-          return true;
-        });
-        
-        if (meaningfulKeys.length > 0) {
-          // Only include meaningful keys in the log
-          const filteredLogData: Record<string, unknown> = {};
-          meaningfulKeys.forEach(key => {
-            const val = logData[key];
-            // Double-check the value is still meaningful before adding
-            if (val !== undefined && val !== null && val !== '') {
-              if (typeof val === 'string' && val.trim().length > 0) {
-                filteredLogData[key] = val;
-              } else if (typeof val === 'object') {
-                if (Array.isArray(val) && val.length > 0) {
-                  filteredLogData[key] = val;
-                } else if (!Array.isArray(val)) {
-                  const objKeys = Object.keys(val as Record<string, unknown>);
-                  if (objKeys.length > 0) {
-                    filteredLogData[key] = val;
+              
+              // Log error.data if it exists and has content
+              if (errorObj.data !== undefined && errorObj.data !== null) {
+                // If data is an object, try to extract message first
+                if (typeof errorObj.data === 'object') {
+                  const dataObj = errorObj.data as Record<string, unknown>;
+                  
+                  // Extract message if present
+                  if ('message' in dataObj && typeof dataObj.message === 'string' && dataObj.message.trim().length > 0) {
+                    logData.errorMessage = dataObj.message;
                   }
+                  
+                  // If data has meaningful content, include it
+                  const dataKeys = Object.keys(dataObj);
+                  if (dataKeys.length > 0) {
+                    logData.data = errorObj.data;
+                  }
+                } else {
+                  // Non-object data
+                  logData.data = errorObj.data;
                 }
+              }
+              
+              // Only log if we have at least one meaningful field
+              if (Object.keys(logData).length > 0) {
+                console.error('API Error:', logData);
               } else {
-                filteredLogData[key] = val;
+                // Fallback: log the original error structure
+                console.error('API Error:', err);
               }
+            } else {
+              console.error('API Error:', err);
             }
-          });
-          
-          // Final check: only log if filteredLogData has actual content
-          // First check if we have any keys at all
-          const hasKeys = Object.keys(filteredLogData).length > 0;
-          
-          if (hasKeys) {
-            // Check if any values are actually non-empty
-            const hasNonEmptyValues = Object.values(filteredLogData).some(val => {
-              if (val === null || val === undefined || val === '') return false;
-              if (typeof val === 'string' && val.trim().length === 0) return false;
-              if (Array.isArray(val) && val.length === 0) return false;
-              if (typeof val === 'object' && !Array.isArray(val)) {
-                const objKeys = Object.keys(val as Record<string, unknown>);
-                if (objKeys.length === 0) return false;
-                // Recursively check if nested object has any non-empty values
-                return Object.values(val as Record<string, unknown>).some(nestedVal => {
-                  if (nestedVal === null || nestedVal === undefined || nestedVal === '') return false;
-                  if (typeof nestedVal === 'string' && nestedVal.trim().length === 0) return false;
-                  if (Array.isArray(nestedVal) && nestedVal.length === 0) return false;
-                  return true;
-                });
-              }
-              return true;
-            });
-            
-            // Also check serialized version to catch edge cases
-            const serialized = JSON.stringify(filteredLogData);
-            const isEmptyObject = serialized === '{}' || serialized === '[]';
-            
-            // Only log if we have non-empty values AND serialized version is not empty
-            if (hasNonEmptyValues && !isEmptyObject) {
-              console.error('API Error:', filteredLogData);
-            } else if (hasKeys) {
-              // If we have keys but they're all empty, log the structure for debugging
-              console.error('API Error: Empty error object detected. Original error structure:', {
-                hasStatus: typeof errorObj.status === 'number',
-                hasMessage: typeof errorObj.message === 'string',
-                hasData: errorObj.data !== undefined,
-                dataType: typeof errorObj.data,
-                dataKeys: errorObj.data && typeof errorObj.data === 'object' ? Object.keys(errorObj.data as Record<string, unknown>) : [],
-              });
-            }
-            // Otherwise silent: all values were filtered out or serialized to {}
+          } catch (logErr) {
+            // Fallback if logging itself fails
+            console.error('API Error: [Unable to log error details]', logErr);
+            console.error('Original error (fallback):', err);
           }
-          // Otherwise silent: no keys in filteredLogData
-        } else {
-          // Check if original error has any enumerable properties
-          const originalKeys = Object.keys(err as Record<string, unknown>);
-          if (originalKeys.length > 0) {
-            // Log original error if it has keys (might have non-enumerable properties)
-            console.error('API Error:', err);
-          }
-          // Otherwise silent: completely empty error object
         }
-      } else {
-        console.error('API Error:', err);
-      }
-    } catch (logErr) {
-      // Fallback if logging itself fails
-      console.error('API Error: [Unable to log error details]', logErr);
-      console.error('Original error (fallback):', err);
-    }
-  }
 
   const errorMessage = err ? extractErrorMessage(err) : defaultMessage;
 
-  if (showToast) {
-    toast.error(errorMessage);
+  // Ensure we have a valid message to show
+  const messageToShow = errorMessage || defaultMessage;
+
+  if (showToast && messageToShow) {
+    console.log('Showing error toast with message:', messageToShow);
+    toast.error(messageToShow);
+  } else if (showToast) {
+    console.warn('Error toast not shown - no message available');
   }
 
-  return errorMessage;
+  return messageToShow;
 }
 
 /**
