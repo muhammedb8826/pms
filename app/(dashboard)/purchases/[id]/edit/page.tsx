@@ -18,8 +18,6 @@ export default function EditPurchasePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
-  console.log({purchase, purchaseItemsData});
-
   // Merge purchase items if they were fetched separately
   const purchaseWithItems = useMemo<Purchase | undefined>(() => {
     if (!purchase) return undefined;

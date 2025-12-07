@@ -76,17 +76,6 @@ export function extractErrorMessage(err: unknown): string {
   const errorObj = err as RTKQueryError;
   const errorData = errorObj.data;
 
-  // Debug: Log the full error structure to understand what we're dealing with
-  if (process.env.NODE_ENV === 'development') {
-    console.log('extractErrorMessage - Full error structure:', {
-      status: errorObj.status,
-      message: errorObj.message,
-      data: errorData,
-      dataType: typeof errorData,
-      dataKeys: errorData && typeof errorData === 'object' ? Object.keys(errorData as Record<string, unknown>) : [],
-    });
-  }
-
   // Special handling for permission errors (403 / FORBIDDEN)
   if (errorObj.status === 403) {
     if (errorData && typeof errorData === 'object' && 'message' in errorData) {
@@ -105,11 +94,30 @@ export function extractErrorMessage(err: unknown): string {
     if ('message' in errorData) {
       const msg = (errorData as { message?: unknown }).message;
       if (typeof msg === 'string' && msg.trim().length > 0) {
+        // Check if this is a foreign key constraint error and provide user-friendly message
+        if (msg.includes('violates foreign key constraint') || msg.includes('foreign key constraint')) {
+          // Try to extract which table is referenced
+          if (msg.includes('on table "sale"') || msg.includes('on table "purchase"')) {
+            const tableName = msg.includes('on table "sale"') ? 'sales' : 'purchases';
+            return `Cannot delete this record because it has associated ${tableName}. Please delete the related ${tableName} first.`;
+          }
+          // Generic foreign key constraint message
+          return 'Cannot delete this record because it is referenced by other records. Please remove the references first.';
+        }
         return msg;
       }
       // Handle array of messages
       if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === 'string') {
-        return msg[0];
+        const firstMsg = msg[0];
+        // Check for foreign key constraint in array messages too
+        if (firstMsg.includes('violates foreign key constraint') || firstMsg.includes('foreign key constraint')) {
+          if (firstMsg.includes('on table "sale"') || firstMsg.includes('on table "purchase"')) {
+            const tableName = firstMsg.includes('on table "sale"') ? 'sales' : 'purchases';
+            return `Cannot delete this record because it has associated ${tableName}. Please delete the related ${tableName} first.`;
+          }
+          return 'Cannot delete this record because it is referenced by other records. Please remove the references first.';
+        }
+        return firstMsg;
       }
     }
     
@@ -117,9 +125,25 @@ export function extractErrorMessage(err: unknown): string {
     if ('error' in errorData && typeof errorData.error === 'object' && errorData.error !== null) {
       const nestedError = errorData.error as { message?: string; details?: string };
       if (nestedError.message && typeof nestedError.message === 'string' && nestedError.message.trim().length > 0) {
+        // Check for foreign key constraint in nested error message
+        if (nestedError.message.includes('violates foreign key constraint') || nestedError.message.includes('foreign key constraint')) {
+          if (nestedError.message.includes('on table "sale"') || nestedError.message.includes('on table "purchase"')) {
+            const tableName = nestedError.message.includes('on table "sale"') ? 'sales' : 'purchases';
+            return `Cannot delete this record because it has associated ${tableName}. Please delete the related ${tableName} first.`;
+          }
+          return 'Cannot delete this record because it is referenced by other records. Please remove the references first.';
+        }
         return nestedError.message;
       }
       if (nestedError.details && typeof nestedError.details === 'string' && nestedError.details.trim().length > 0) {
+        // Check for foreign key constraint in nested error details
+        if (nestedError.details.includes('violates foreign key constraint') || nestedError.details.includes('foreign key constraint')) {
+          if (nestedError.details.includes('on table "sale"') || nestedError.details.includes('on table "purchase"')) {
+            const tableName = nestedError.details.includes('on table "sale"') ? 'sales' : 'purchases';
+            return `Cannot delete this record because it has associated ${tableName}. Please delete the related ${tableName} first.`;
+          }
+          return 'Cannot delete this record because it is referenced by other records. Please remove the references first.';
+        }
         return nestedError.details;
       }
     }
@@ -169,6 +193,14 @@ export function extractErrorMessage(err: unknown): string {
 
   const firstString = candidates.find((c) => typeof c === 'string');
   if (firstString) {
+    // Check for foreign key constraint in fallback messages
+    if (firstString.includes('violates foreign key constraint') || firstString.includes('foreign key constraint')) {
+      if (firstString.includes('on table "sale"') || firstString.includes('on table "purchase"')) {
+        const tableName = firstString.includes('on table "sale"') ? 'sales' : 'purchases';
+        return `Cannot delete this record because it has associated ${tableName}. Please delete the related ${tableName} first.`;
+      }
+      return 'Cannot delete this record because it is referenced by other records. Please remove the references first.';
+    }
     return firstString;
   }
 
@@ -261,10 +293,7 @@ export function handleApiError(
   const messageToShow = errorMessage || defaultMessage;
 
   if (showToast && messageToShow) {
-    console.log('Showing error toast with message:', messageToShow);
     toast.error(messageToShow);
-  } else if (showToast) {
-    console.warn('Error toast not shown - no message available');
   }
 
   return messageToShow;

@@ -348,11 +348,12 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
       }
       
       if (purchase) {
-        // For updates, omit items to avoid backend requiring purchaseId on nested items
+        // For updates, include items so quantities and other item fields can be updated
         const updateData: UpdatePurchaseDto = {
           supplierId: data.supplierId,
           invoiceNo: data.invoiceNo,
           date: data.date,
+          items: validatedItems, // Include items for updates
         };
         if (data.status) updateData.status = data.status;
         if (data.notes) updateData.notes = data.notes;
