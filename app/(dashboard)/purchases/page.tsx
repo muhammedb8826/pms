@@ -64,7 +64,7 @@ export default function Page() {
   const [search, setSearch] = useState('');
   const [supplierId, setSupplierId] = useState<string>('');
   const [status, setStatus] = useState<string>('');
-  const [sortBy, setSortBy] = useState<string>('date');
+  const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const { purchases, total, loading, error, refetch } = usePurchases(page, pageSize, {
     search, 

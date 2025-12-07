@@ -34,7 +34,7 @@ export const purchaseApi = baseApi.injectEndpoints({
       }
     >({
       query: (params = {}) => {
-        const { page = 1, limit = 10, search, supplierId, status, sortBy, sortOrder } = params;
+        const { page = 1, limit = 10, search, supplierId, status, sortBy = 'createdAt', sortOrder = 'DESC' } = params;
         const query = new URLSearchParams();
         query.set('page', String(page));
         query.set('limit', String(limit));

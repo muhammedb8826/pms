@@ -71,7 +71,7 @@ export default function PaymentsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'paymentDate' | 'amount' | 'createdAt'>('paymentDate');
+  const [sortBy, setSortBy] = useState<'paymentDate' | 'amount' | 'createdAt'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 

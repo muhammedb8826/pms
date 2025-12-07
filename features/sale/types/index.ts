@@ -54,6 +54,7 @@ export interface Sale {
   date: string; // YYYY-MM-DD
   totalAmount: number | string; // backend may return string
   paidAmount?: number | string; // optional, used for vouchers
+  paymentMethodId?: string | null;
   status: SaleStatus;
   notes?: string | null;
   items: SaleItem[];

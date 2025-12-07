@@ -19,7 +19,7 @@ export const manufacturerApi = baseApi.injectEndpoints({
       }
     >({
       query: (params = {}) => {
-        const { page = 1, limit = 10, search, sortBy, sortOrder } = params;
+        const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'DESC' } = params;
         const query = new URLSearchParams();
         query.set('page', String(page));
         query.set('limit', String(limit));

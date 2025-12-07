@@ -64,7 +64,7 @@ export default function SalesPage() {
     search: search || undefined,
     customerId: customerId || undefined,
     status: statusFilter,
-    sortBy: 'date',
+    sortBy: 'createdAt',
     sortOrder: 'DESC',
   });
   const sales = useMemo(() => Array.isArray(rawSales) ? rawSales : [], [rawSales]);

@@ -18,7 +18,7 @@ export const paymentApi = baseApi.injectEndpoints({
           purchaseId,
           saleId,
           creditId,
-          sortBy = 'paymentDate',
+          sortBy = 'createdAt',
           sortOrder = 'DESC',
         } = params;
         const query = new URLSearchParams();

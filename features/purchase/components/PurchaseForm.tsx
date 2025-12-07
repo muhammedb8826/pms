@@ -113,6 +113,11 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
 
   const { paymentMethods } = usePaymentMethods();
 
+  // Find cash payment method (default)
+  const cashPaymentMethod = paymentMethods.find(
+    (pm) => pm.isActive && pm.name.toLowerCase() === 'cash'
+  );
+
   useEffect(() => {
     if (purchase) {
       setSupplierId(purchase.supplier?.id ?? '');
@@ -181,6 +186,13 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
     onSubmittingChange?.(isSubmitting);
   }, [isSubmitting, onSubmittingChange]);
 
+  // Set cash as default payment method when paidAmount > 0 and no payment method is selected
+  useEffect(() => {
+    if (!purchase && paidAmount > 0 && !paymentMethodId && cashPaymentMethod) {
+      setPaymentMethodId(cashPaymentMethod.id);
+    }
+  }, [purchase, paidAmount, paymentMethodId, cashPaymentMethod]);
+
   const totalAmount = useMemo(() => {
     return items.reduce((sum, item) => {
       const itemTotal = item.totalCost ?? (Number(item.quantity) * Number(item.unitCost));
@@ -221,7 +233,16 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
       item.unitCost = typeof value === 'number' ? value : item.unitCost;
       // Auto-calculate totalCost
       item.totalCost = item.quantity * item.unitCost;
-    } else if (field === 'productId' || field === 'batchNumber' || field === 'expiryDate') {
+    } else if (field === 'productId') {
+      item[field] = typeof value === 'string' ? value : '';
+      // Auto-select purchase UOM when product is selected
+      if (typeof value === 'string' && value) {
+        const selectedProduct = allProducts.find((p) => p.id === value);
+        if (selectedProduct?.purchaseUom?.id) {
+          item.uomId = selectedProduct.purchaseUom.id;
+        }
+      }
+    } else if (field === 'batchNumber' || field === 'expiryDate') {
       item[field] = typeof value === 'string' ? value : '';
     } else if (field === 'uomId' || field === 'notes') {
       item[field] = typeof value === 'string' ? value : undefined;
@@ -342,9 +363,8 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
       }
       if (paidAmount > 0) {
         data.paidAmount = paidAmount;
-      }
-      if (paymentMethodId) {
-        data.paymentMethodId = paymentMethodId;
+        // If paidAmount > 0, ensure payment method is set (default to cash if not set)
+        data.paymentMethodId = paymentMethodId || cashPaymentMethod?.id || '';
       }
       
       if (purchase) {
@@ -360,8 +380,11 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
         // Always include paidAmount and paymentMethodId in updates if they have values
         if (paidAmount !== undefined && paidAmount !== null) {
           updateData.paidAmount = paidAmount;
-        }
-        if (paymentMethodId) {
+          // If paidAmount > 0, ensure payment method is set (default to cash if not set)
+          if (paidAmount > 0) {
+            updateData.paymentMethodId = paymentMethodId || cashPaymentMethod?.id || '';
+          }
+        } else if (paymentMethodId) {
           updateData.paymentMethodId = paymentMethodId;
         }
         
@@ -712,15 +735,14 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
             <div className="space-y-1">
               <label htmlFor="paymentMethodId" className="block text-sm font-medium">Payment Method</label>
               <Select
-                value={paymentMethodId || '__none__'}
-                onValueChange={(v) => setPaymentMethodId(v === '__none__' ? '' : v)}
+                value={paymentMethodId || (cashPaymentMethod?.id ?? '')}
+                onValueChange={(v) => setPaymentMethodId(v)}
                 disabled={isCompleted || isCancelled || paidAmount === 0}
               >
                 <SelectTrigger id="paymentMethodId">
-                  <SelectValue placeholder="Select payment method (optional)" />
+                  <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
                   {paymentMethods
                     .filter((pm) => pm.isActive)
                     .map((pm) => (

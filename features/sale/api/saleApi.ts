@@ -32,9 +32,13 @@ export const saleApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getSales: builder.query<PaginatedSales, GetSalesParams | void>({
       query: (params) => {
+        const defaultParams = {
+          sortBy: 'createdAt' as const,
+          sortOrder: 'DESC' as const,
+        };
         const queryParams = params
-          ? ({ ...params } as Record<string, string | number | boolean | undefined>)
-          : undefined;
+          ? ({ ...defaultParams, ...params } as Record<string, string | number | boolean | undefined>)
+          : defaultParams;
         return {
           url: '/sales',
           params: queryParams,

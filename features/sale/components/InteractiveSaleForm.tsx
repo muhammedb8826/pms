@@ -81,10 +81,22 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
   const allProductsQuery = useAllProducts();
   const { paymentMethods } = usePaymentMethods({ includeInactive: false });
 
+  // Find cash payment method (default)
+  const cashPaymentMethod = paymentMethods.find(
+    (pm) => pm.isActive && pm.name.toLowerCase() === 'cash'
+  );
+
   // Auto-focus search input on mount
   useEffect(() => {
     searchInputRef.current?.focus();
   }, []);
+
+  // Set cash as default payment method when paidAmount > 0 and no payment method is selected
+  useEffect(() => {
+    if (paidAmount > 0 && !paymentMethodId && cashPaymentMethod) {
+      setPaymentMethodId(cashPaymentMethod.id);
+    }
+  }, [paidAmount, paymentMethodId, cashPaymentMethod]);
 
   const customers = useMemo(() => {
     type WR<T> = { success: boolean; data: T };
@@ -153,7 +165,7 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
             productId: product.id,
             product,
             batchId: '', // Will be selected in cart
-            uomId: undefined, // Will be selected in cart
+            uomId: product.defaultUom?.id, // Auto-select default UOM
             quantity: 1,
             unitPrice: sellingPrice,
             discount: 0,
@@ -282,8 +294,11 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
           totalPrice: item.totalPrice,
           ...(item.uomId && { uomId: item.uomId }),
         })),
-        ...(paidAmount > 0 && { paidAmount }),
-        ...(paymentMethodId && { paymentMethodId }),
+        ...(paidAmount > 0 && { 
+          paidAmount,
+          // If paidAmount > 0, ensure payment method is set (default to cash if not set)
+          paymentMethodId: paymentMethodId || cashPaymentMethod?.id || ''
+        }),
         ...(currentUser?.id && { salespersonId: currentUser.id }),
       };
 
@@ -521,14 +536,13 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
                 <div>
                   <label className="text-sm font-medium mb-2 block">Payment Method</label>
                   <Select
-                    value={paymentMethodId || '__none__'}
-                    onValueChange={(v) => setPaymentMethodId(v === '__none__' ? '' : v)}
+                    value={paymentMethodId || (cashPaymentMethod?.id ?? '')}
+                    onValueChange={(v) => setPaymentMethodId(v)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Payment method" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
                       {paymentMethods
                         .filter((pm) => pm.isActive)
                         .map((pm) => (

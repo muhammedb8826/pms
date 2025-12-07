@@ -66,7 +66,7 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   const [status, setStatus] = useState<SaleStatus>(sale?.status ?? 'COMPLETED');
   const [notes, setNotes] = useState(sale?.notes ?? '');
   const [paidAmount, setPaidAmount] = useState<number>(sale?.paidAmount ? Number(sale.paidAmount) : 0);
-  const [paymentMethodId, setPaymentMethodId] = useState<string>('');
+  const [paymentMethodId, setPaymentMethodId] = useState<string>(sale?.paymentMethodId ?? '');
   
   // Get current logged-in user
   const { user: currentUser } = useAuth();
@@ -103,6 +103,11 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   const allProductsQuery = useAllProducts();
   const { paymentMethods } = usePaymentMethods({ includeInactive: false });
 
+  // Find cash payment method (default)
+  const cashPaymentMethod = paymentMethods.find(
+    (pm) => pm.isActive && pm.name.toLowerCase() === 'cash'
+  );
+
   const customers = useMemo(() => {
     type WR<T> = { success: boolean; data: T };
     const data = allCustomersQuery.data as Customer[] | WR<Customer[]> | undefined;
@@ -126,6 +131,13 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
   useEffect(() => {
     onSubmittingChange?.(false);
   }, [onSubmittingChange]);
+
+  // Set cash as default payment method when paidAmount > 0 and no payment method is selected
+  useEffect(() => {
+    if (!sale && paidAmount > 0 && !paymentMethodId && cashPaymentMethod) {
+      setPaymentMethodId(cashPaymentMethod.id);
+    }
+  }, [sale, paidAmount, paymentMethodId, cashPaymentMethod]);
 
   function recalcItem(idx: number, draft: ItemState[]): void {
     const it = draft[idx];
@@ -206,9 +218,8 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
         };
         if (paidAmount > 0) {
           data.paidAmount = paidAmount;
-        }
-        if (paymentMethodId) {
-          data.paymentMethodId = paymentMethodId;
+          // If paidAmount > 0, ensure payment method is set (default to cash if not set)
+          data.paymentMethodId = paymentMethodId || cashPaymentMethod?.id || '';
         }
         // Always include salespersonId (current user or existing sale's salesperson)
         if (salespersonId) {
@@ -233,9 +244,8 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
         };
         if (paidAmount > 0) {
           dto.paidAmount = paidAmount;
-        }
-        if (paymentMethodId) {
-          dto.paymentMethodId = paymentMethodId;
+          // If paidAmount > 0, ensure payment method is set (default to cash if not set)
+          dto.paymentMethodId = paymentMethodId || cashPaymentMethod?.id || '';
         }
         // Always include current user as salesperson for new sales
         if (salespersonId) {
@@ -328,15 +338,14 @@ export function SaleForm({ sale, onSuccess, onCancel, formId, hideActions, onErr
             <div>
               <label className="block text-sm font-medium mb-2">Payment Method</label>
               <Select
-                value={paymentMethodId || '__none__'}
-                onValueChange={(v) => setPaymentMethodId(v === '__none__' ? '' : v)}
+                value={paymentMethodId || (cashPaymentMethod?.id ?? '')}
+                onValueChange={(v) => setPaymentMethodId(v)}
                 disabled={paidAmount === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select payment method (optional)" />
+                  <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
                   {paymentMethods
                     .filter((pm: PaymentMethodEntity) => pm.isActive)
                     .map((pm: PaymentMethodEntity) => (
@@ -459,7 +468,19 @@ function ItemRow({
   return (
     <tr className="border-b hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3 min-w-[180px]">
-        <Select value={value.productId} onValueChange={(v) => onChange(index, 'productId', v || '')}>
+        <Select 
+          value={value.productId} 
+          onValueChange={(v) => {
+            onChange(index, 'productId', v || '');
+            // Auto-select default UOM when product is selected
+            if (v) {
+              const selectedProduct = products.find((p) => p.id === v);
+              if (selectedProduct?.defaultUom?.id) {
+                onChange(index, 'uomId', selectedProduct.defaultUom.id);
+              }
+            }
+          }}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select product" />
           </SelectTrigger>
