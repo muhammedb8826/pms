@@ -21,16 +21,16 @@ import { Separator } from '@/components/ui/separator';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
 import { useAllCustomers } from '@/features/customer/hooks/useCustomers';
 import { useAvailableBatchesForProduct } from '@/features/batch/hooks/useBatches';
-import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import { useAllUnitOfMeasures } from '@/features/uom/hooks/useUnitOfMeasures';
+import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import { useCreateSale } from '@/features/sale/hooks/useSales';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
+import type { UnitOfMeasure } from '@/features/uom/types';
 import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
 import { resolveImageUrl } from '@/lib/utils/image-url';
 import type { Product } from '@/features/product/types';
 import type { Customer } from '@/features/customer/types';
 import type { Batch as BatchType } from '@/features/batch/types';
-import type { UnitOfMeasure } from '@/features/uom/types';
 import type { CreateSaleDto } from '@/features/sale/types';
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
@@ -312,7 +312,7 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
     } finally {
       setIsSubmitting(false);
     }
-  }, [cart, customerId, date, notes, paidAmount, paymentMethodId, currentUser, createSale, onSuccess]);
+  }, [cart, customerId, date, notes, paidAmount, paymentMethodId, cashPaymentMethod?.id, currentUser, createSale, onSuccess]);
 
   return (
     <div className="flex flex-col h-full">
@@ -664,18 +664,18 @@ function CartItemCard({
               </SelectContent>
             </Select>
             <Select
-              value={item.uomId || '__none__'}
-              onValueChange={(v) => onUpdateUom(index, v === '__none__' ? undefined : v)}
+              value={item.uomId || item.product.defaultUom?.id || ''}
+              onValueChange={(v) => onUpdateUom(index, v || undefined)}
               disabled={!item.product.unitCategory}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Unit" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">Base UOM</SelectItem>
                 {availableUoms.map((uom) => (
                   <SelectItem key={uom.id} value={uom.id}>
                     {uom.abbreviation || uom.name}
+                    {uom.id === item.product.defaultUom?.id && ' (Default)'}
                   </SelectItem>
                 ))}
               </SelectContent>

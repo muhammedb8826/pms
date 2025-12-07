@@ -8,9 +8,9 @@ import { useCreateSale, useUpdateSale } from '@/features/sale/hooks/useSales';
 import { useAllCustomers } from '@/features/customer/hooks/useCustomers';
 import { useAllProducts } from '@/features/product/hooks/useProducts';
 import { useAvailableBatchesForProduct } from '@/features/batch/hooks/useBatches';
+import { useAllUnitOfMeasures } from '@/features/uom/hooks/useUnitOfMeasures';
 import { usePaymentMethods } from '@/features/payment-method/hooks/usePaymentMethods';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
-import { useAllUnitOfMeasures } from '@/features/uom/hooks/useUnitOfMeasures';
 import type { UnitOfMeasure } from '@/features/uom/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -447,7 +447,7 @@ function ItemRow({
     return batches.find((b) => b.id === value.batchId);
   }, [batches, value.batchId]);
 
-  // Get selected product to find its unit category
+  // Get selected product to filter UOMs by its unit category
   const selectedProduct = useMemo(() => {
     return products.find((p) => p.id === value.productId);
   }, [products, value.productId]);
@@ -472,11 +472,14 @@ function ItemRow({
           value={value.productId} 
           onValueChange={(v) => {
             onChange(index, 'productId', v || '');
-            // Auto-select default UOM when product is selected
+            // Auto-populate default UOM when product is selected
             if (v) {
               const selectedProduct = products.find((p) => p.id === v);
               if (selectedProduct?.defaultUom?.id) {
                 onChange(index, 'uomId', selectedProduct.defaultUom.id);
+              } else {
+                // Clear UOM if product doesn't have default UOM
+                onChange(index, 'uomId', undefined);
               }
             }
           }}
@@ -534,18 +537,18 @@ function ItemRow({
       </td>
       <td className="px-4 py-3 min-w-[100px]">
         <Select
-          value={value.uomId || '__none__'}
-          onValueChange={(v) => onChange(index, 'uomId', v === '__none__' ? undefined : (v || undefined))}
+          value={value.uomId || selectedProduct?.defaultUom?.id || ''}
+          onValueChange={(v) => onChange(index, 'uomId', v || undefined)}
           disabled={!selectedProduct}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Base UOM" />
+            <SelectValue placeholder="Select UOM" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__none__">Base UOM</SelectItem>
-            {availableUoms.map((uom) => (
+            {availableUoms.map((uom: UnitOfMeasure) => (
               <SelectItem key={uom.id} value={uom.id}>
                 {uom.abbreviation || uom.name}
+                {uom.id === selectedProduct?.defaultUom?.id && ' (Default)'}
               </SelectItem>
             ))}
           </SelectContent>

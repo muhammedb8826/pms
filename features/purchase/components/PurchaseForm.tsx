@@ -101,6 +101,8 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
     return [] as Product[];
   }, [allProductsQuery.data]);
 
+
+  const { paymentMethods } = usePaymentMethods();
   const allUomsQuery = useAllUnitOfMeasures();
   const allUoms = useMemo(() => {
     type WrappedResponse<T> = { success?: boolean; data?: T };
@@ -110,8 +112,6 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
     if ('data' in data && Array.isArray(data.data)) return data.data;
     return [] as UnitOfMeasure[];
   }, [allUomsQuery.data]);
-
-  const { paymentMethods } = usePaymentMethods();
 
   // Find cash payment method (default)
   const cashPaymentMethod = paymentMethods.find(
@@ -235,16 +235,21 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
       item.totalCost = item.quantity * item.unitCost;
     } else if (field === 'productId') {
       item[field] = typeof value === 'string' ? value : '';
-      // Auto-select purchase UOM when product is selected
+      // Auto-populate purchase UOM when product is selected
       if (typeof value === 'string' && value) {
         const selectedProduct = allProducts.find((p) => p.id === value);
         if (selectedProduct?.purchaseUom?.id) {
           item.uomId = selectedProduct.purchaseUom.id;
+        } else {
+          // Clear UOM if product doesn't have purchase UOM
+          item.uomId = undefined;
         }
       }
     } else if (field === 'batchNumber' || field === 'expiryDate') {
       item[field] = typeof value === 'string' ? value : '';
-    } else if (field === 'uomId' || field === 'notes') {
+    } else if (field === 'uomId') {
+      item[field] = typeof value === 'string' && value ? value : undefined;
+    } else if (field === 'notes') {
       item[field] = typeof value === 'string' ? value : undefined;
     }
     
@@ -308,7 +313,7 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
           totalCost: parsed.data.totalCost ?? (parsed.data.quantity * parsed.data.unitCost),
         };
         
-        // Only include optional fields if they have values
+        // Always include uomId if available (auto-populated from product's purchase UOM)
         if (parsed.data.uomId && parsed.data.uomId.trim() !== '') {
           itemData.uomId = parsed.data.uomId;
         }
@@ -620,20 +625,22 @@ export function PurchaseForm({ purchase, onSuccess, onCancel, formId, hideAction
                         const filteredUoms = selectedProduct?.unitCategory?.id
                           ? allUoms.filter((u) => u.unitCategoryId === selectedProduct.unitCategory.id)
                           : [];
+                        const purchaseUom = selectedProduct?.purchaseUom;
+                        
                         return (
                           <Select
-                            value={item.uomId || '__none__'}
-                            onValueChange={(v) => updateItem(index, 'uomId', v === '__none__' ? undefined : (v || undefined))}
+                            value={item.uomId || ''}
+                            onValueChange={(v) => updateItem(index, 'uomId', v)}
                             disabled={isCompleted || isCancelled || !selectedProduct}
                           >
                             <SelectTrigger className="w-full min-w-[120px]">
-                              <SelectValue placeholder="Base UOM" />
+                              <SelectValue placeholder="Select UOM" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="__none__">Base UOM</SelectItem>
                               {filteredUoms.map((u) => (
                                 <SelectItem key={u.id} value={u.id}>
                                   {u.abbreviation || u.name}
+                                  {u.id === purchaseUom?.id && ' (Default)'}
                                 </SelectItem>
                               ))}
                             </SelectContent>
