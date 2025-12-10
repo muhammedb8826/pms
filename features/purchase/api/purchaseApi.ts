@@ -59,7 +59,14 @@ export const purchaseApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Purchases'],
+      invalidatesTags: (result, error, data) => {
+        const tags: ('Purchases' | 'Products' | 'Batches')[] = ['Purchases'];
+        // When a purchase is created as COMPLETED, refresh related inventories/batches
+        if (data?.status) {
+          tags.push('Products', 'Batches');
+        }
+        return tags;
+      },
     }),
     updatePurchase: builder.mutation<
       Purchase,
@@ -71,13 +78,13 @@ export const purchaseApi = baseApi.injectEndpoints({
         body: data,
       }),
       invalidatesTags: (result, error, { id, data }) => {
-        const tags: (('Purchases' | 'Products') | { type: 'Purchase'; id: string })[] = [
+        const tags: (('Purchases' | 'Products' | 'Batches') | { type: 'Purchase'; id: string })[] = [
           { type: 'Purchase', id },
           'Purchases',
         ];
-        // When status is updated (especially to COMPLETED), refresh products to reflect new quantities
+        // When status is updated (especially to COMPLETED), refresh products/batches to reflect new quantities
         if (data?.status) {
-          tags.push('Products');
+          tags.push('Products', 'Batches');
         }
         return tags;
       },
