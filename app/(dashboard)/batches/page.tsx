@@ -84,11 +84,24 @@ export default function BatchesPage() {
     return [] as Supplier[];
   }, [suppliersQuery.data]);
 
-  const pageCount = useMemo(() => Math.max(1, Math.ceil(batches.length / pageSize) || 1), [batches.length, pageSize]);
+  const sortedBatches = useMemo(() => {
+    // Default to newest first using createdAt
+    return [...batches].sort((a, b) => {
+      const aDate = new Date(a.createdAt).getTime();
+      const bDate = new Date(b.createdAt).getTime();
+      return bDate - aDate;
+    });
+  }, [batches]);
+
+  const pageCount = useMemo(
+    () => Math.max(1, Math.ceil(sortedBatches.length / pageSize) || 1),
+    [sortedBatches.length, pageSize],
+  );
+
   const paginatedBatches = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return batches.slice(start, start + pageSize);
-  }, [batches, page, pageSize]);
+    return sortedBatches.slice(start, start + pageSize);
+  }, [sortedBatches, page, pageSize]);
 
   const deleteMutation = useDeleteBatch();
 
