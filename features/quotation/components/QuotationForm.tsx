@@ -30,6 +30,8 @@ import { handleApiError, handleApiSuccess } from "@/lib/utils/api-error-handler"
 
 const itemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
   unitPrice: z
     .coerce
@@ -61,6 +63,8 @@ export interface QuotationFormProps {
 
 type ItemState = {
   productId: string;
+  batchNumber?: string;
+  expiryDate?: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -96,6 +100,8 @@ export function QuotationForm({
           const discount = typeof it.discount === 'string' ? parseFloat(it.discount) || 0 : (it.discount || 0);
           return {
             productId,
+            batchNumber: it.batchNumber ?? undefined,
+            expiryDate: it.expiryDate ?? undefined,
             quantity: Number(it.quantity) || 0,
             unitPrice,
             discount,
@@ -105,6 +111,8 @@ export function QuotationForm({
       : [
           {
             productId: "",
+            batchNumber: "",
+            expiryDate: "",
             quantity: 1,
             unitPrice: 0,
             discount: 0,
@@ -152,7 +160,7 @@ export function QuotationForm({
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { productId: "", quantity: 1, unitPrice: 0, discount: 0 },
+      { productId: "", batchNumber: "", expiryDate: "", quantity: 1, unitPrice: 0, discount: 0 },
     ]);
   }
 
@@ -172,14 +180,31 @@ export function QuotationForm({
     });
   }
 
-  const totalAmount = useMemo(() => {
-    return items.reduce((sum, it) => {
+  const { subtotal, totalDiscount, netTotal } = useMemo(() => {
+    let subtotalAcc = 0;
+    let discountAcc = 0;
+
+    for (const it of items) {
       const qty = Number(it.quantity || 0);
       const price = Number(it.unitPrice || 0);
       const disc = Number(it.discount || 0);
-      const total = qty * price - disc;
-      return sum + (Number.isFinite(total) ? total : 0);
-    }, 0);
+      const lineSubtotal = qty * price;
+
+      if (Number.isFinite(lineSubtotal)) {
+        subtotalAcc += lineSubtotal;
+      }
+      if (Number.isFinite(disc)) {
+        discountAcc += disc;
+      }
+    }
+
+    const net = subtotalAcc - discountAcc;
+
+    return {
+      subtotal: Number.isFinite(subtotalAcc) ? subtotalAcc : 0,
+      totalDiscount: Number.isFinite(discountAcc) ? discountAcc : 0,
+      netTotal: Number.isFinite(net) ? net : 0,
+    };
   }, [items]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -267,236 +292,348 @@ export function QuotationForm({
       className="space-y-6"
       noValidate
     >
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Customer
-              </label>
-              <Select
-                value={customerId || undefined}
-                onValueChange={(v) => setCustomerId(v || "")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isLoadingData ? (
-                    <SelectItem value="__loading__" disabled>Loading customers...</SelectItem>
-                  ) : customers.length === 0 ? (
-                    <SelectItem value="__empty__" disabled>No customers available</SelectItem>
-                  ) : (
-                    customers.map((c: Customer) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="space-y-3 rounded-md border bg-muted/40 p-4">
+          <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold">Quotation Header</h2>
+                <p className="text-xs text-muted-foreground">
+                  Customer and validity details for this quotation.
+                </p>
+              </div>
+              {quotation?.id && (
+                <div className="rounded border bg-background px-3 py-1.5 text-right text-xs">
+                  <div className="font-semibold">Quotation No</div>
+                  <div className="font-mono text-[11px]">
+                    {quotation.id.slice(0, 8).toUpperCase()}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide">
+                  Customer
+                </label>
+                <Select
+                  value={customerId || undefined}
+                  onValueChange={(v) => setCustomerId(v || "")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingData ? (
+                      <SelectItem value="__loading__" disabled>
+                        Loading customers...
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Date</label>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setDate(e.target.value)
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Valid Until
-              </label>
-              <Input
-                type="date"
-                value={validUntil || ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setValidUntil(e.target.value)
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
-              <Select
-                value={status}
-                onValueChange={(v) =>
-                  setStatus((v || "DRAFT") as QuotationStatus)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DRAFT">DRAFT</SelectItem>
-                  <SelectItem value="SENT">SENT</SelectItem>
-                  <SelectItem value="ACCEPTED">ACCEPTED</SelectItem>
-                  <SelectItem value="REJECTED">REJECTED</SelectItem>
-                  <SelectItem value="EXPIRED">EXPIRED</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                    ) : customers.length === 0 ? (
+                      <SelectItem value="__empty__" disabled>
+                        No customers available
+                      </SelectItem>
+                    ) : (
+                      customers.map((c: Customer) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Items</label>
-            <div className="overflow-x-auto border rounded-md">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left">
-                  <tr>
-                    <th className="p-2">Product</th>
-                    <th className="p-2">Qty</th>
-                    <th className="p-2">Unit Price</th>
-                    <th className="p-2">Discount</th>
-                    <th className="p-2">Total</th>
-                    <th className="p-2">Notes</th>
-                    <th className="p-2">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((it, idx) => {
-                    const lineTotal =
-                      Number(it.quantity || 0) * Number(it.unitPrice || 0) -
-                      Number(it.discount || 0);
-                    return (
-                      <tr key={idx} className="border-b">
-                        <td className="p-2">
-                          <Select
-                            value={it.productId || undefined}
-                            onValueChange={(v) =>
-                              updateItem(idx, "productId", v || "")
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {isLoadingData ? (
-                                <SelectItem value="__loading__" disabled>Loading products...</SelectItem>
-                              ) : products.length === 0 ? (
-                                <SelectItem value="__empty__" disabled>No products available</SelectItem>
-                              ) : (
-                                products.map((p: Product) => (
-                                  <SelectItem key={p.id} value={p.id}>
-                                    {p.name}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="p-2 w-24">
-                          <Input
-                            type="number"
-                            min={1}
-                            value={it.quantity}
-                            onChange={(
-                              e: React.ChangeEvent<HTMLInputElement>,
-                            ) =>
-                              updateItem(
-                                idx,
-                                "quantity",
-                                Number(e.target.value) || 0,
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="p-2 w-28">
-                          <Input
-                            type="number"
-                            value={it.unitPrice}
-                            onChange={(
-                              e: React.ChangeEvent<HTMLInputElement>,
-                            ) =>
-                              updateItem(
-                                idx,
-                                "unitPrice",
-                                Number(e.target.value) || 0,
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="p-2 w-24">
-                          <Input
-                            type="number"
-                            value={it.discount ?? 0}
-                            onChange={(
-                              e: React.ChangeEvent<HTMLInputElement>,
-                            ) =>
-                              updateItem(
-                                idx,
-                                "discount",
-                                Number(e.target.value) || 0,
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="p-2 w-28">
-                          <Input
-                            type="number"
-                            value={Number(lineTotal).toFixed(2)}
-                            readOnly
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Input
-                            value={it.notes ?? ""}
-                            onChange={(
-                              e: React.ChangeEvent<HTMLInputElement>,
-                            ) =>
-                              updateItem(idx, "notes", e.target.value)
-                            }
-                            placeholder="Notes"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => removeItem(idx)}
-                            disabled={items.length === 1}
-                          >
-                            Delete
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div>
-              <Button type="button" variant="outline" onClick={addItem}>
-                Add row
-              </Button>
-            </div>
-          </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide">
+                  Date
+                </label>
+                <Input
+                  type="date"
+                  value={date}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setDate(e.target.value)
+                  }
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Notes / Terms
-            </label>
-            <textarea
-              className="flex h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={notes}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                setNotes(e.target.value)
-              }
-              placeholder="Additional information or terms for this quotation"
-            />
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide">
+                  Valid Until
+                </label>
+                <Input
+                  type="date"
+                  value={validUntil || ""}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setValidUntil(e.target.value)
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide">
+                  Status
+                </label>
+                <Select
+                  value={status}
+                  onValueChange={(v) =>
+                    setStatus((v || "DRAFT") as QuotationStatus)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DRAFT">DRAFT</SelectItem>
+                    <SelectItem value="SENT">SENT</SelectItem>
+                    <SelectItem value="ACCEPTED">ACCEPTED</SelectItem>
+                    <SelectItem value="REJECTED">REJECTED</SelectItem>
+                    <SelectItem value="EXPIRED">EXPIRED</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="lg:col-span-1 space-y-4">
-          <div className="border rounded-md p-4">
-            <div className="text-sm text-muted-foreground">Total Amount</div>
-            <div className="text-2xl font-semibold">
-              {Number(totalAmount).toFixed(2)}
+        {/* Items grid */}
+        <div className="space-y-2 rounded-md border bg-background/40 p-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium">Line Items</label>
+            <span className="text-xs text-muted-foreground">
+              
+            </span>
+          </div>
+          <div className="overflow-x-auto rounded-md border bg-background/40">
+            <table className="w-full text-xs md:text-sm">
+              <thead className="bg-muted/60 text-left">
+                <tr>
+                  <th className="w-10 px-2 py-1 text-center">SN</th>
+                  <th className="min-w-[150px] px-2 py-1">Product</th>
+                  <th className="min-w-[110px] px-2 py-1">Batch No.</th>
+                  <th className="min-w-[120px] px-2 py-1">Exp. Date</th>
+                  <th className="w-20 px-2 py-1 text-right">Qty</th>
+                  <th className="w-28 px-2 py-1 text-right">Unit Price</th>
+                  <th className="w-24 px-2 py-1 text-right">Discount</th>
+                  <th className="w-28 px-2 py-1 text-right">Line Total</th>
+                  <th className="min-w-[140px] px-2 py-1">Notes</th>
+                  <th className="w-20 px-2 py-1 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, idx) => {
+                  const lineTotal =
+                    Number(it.quantity || 0) * Number(it.unitPrice || 0) -
+                    Number(it.discount || 0);
+                  return (
+                    <tr key={idx} className="border-t">
+                      <td className="px-2 py-1 text-center align-middle">
+                        {idx + 1}
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Select
+                          value={it.productId || undefined}
+                          onValueChange={(v) => {
+                            const selectedProduct = products.find(
+                              (p) => p.id === v,
+                            );
+                            setItems((prev) => {
+                              const draft = [...prev];
+                              const current = draft[idx] ?? {
+                                productId: "",
+                                quantity: 1,
+                                unitPrice: 0,
+                                discount: 0,
+                              };
+                              draft[idx] = {
+                                ...current,
+                                productId: v || "",
+                                // Auto-fill batch number if empty using product code or name.
+                                batchNumber:
+                                  current.batchNumber &&
+                                  current.batchNumber.trim().length > 0
+                                    ? current.batchNumber
+                                    : selectedProduct?.productCode ||
+                                      selectedProduct?.name ||
+                                      "",
+                              };
+                              return draft;
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isLoadingData ? (
+                              <SelectItem value="__loading__" disabled>
+                                Loading products...
+                              </SelectItem>
+                            ) : products.length === 0 ? (
+                              <SelectItem value="__empty__" disabled>
+                                No products available
+                              </SelectItem>
+                            ) : (
+                              products.map((p: Product) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Input
+                          className="h-8"
+                          placeholder="Batch"
+                          value={it.batchNumber ?? ""}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateItem(idx, "batchNumber", e.target.value)
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Input
+                          className="h-8"
+                          type="date"
+                          value={it.expiryDate ?? ""}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateItem(idx, "expiryDate", e.target.value)
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Input
+                          className="h-8 text-right"
+                          type="number"
+                          min={1}
+                          value={it.quantity}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateItem(
+                              idx,
+                              "quantity",
+                              Number(e.target.value) || 0,
+                            )
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Input
+                          className="h-8 text-right"
+                          type="number"
+                          value={it.unitPrice}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateItem(
+                              idx,
+                              "unitPrice",
+                              Number(e.target.value) || 0,
+                            )
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Input
+                          className="h-8 text-right"
+                          type="number"
+                          value={it.discount ?? 0}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateItem(
+                              idx,
+                              "discount",
+                              Number(e.target.value) || 0,
+                            )
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Input
+                          className="h-8 text-right"
+                          type="number"
+                          value={Number(lineTotal).toFixed(2)}
+                          readOnly
+                        />
+                      </td>
+                      <td className="px-2 py-1 align-middle">
+                        <Input
+                          className="h-8"
+                          value={it.notes ?? ""}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateItem(idx, "notes", e.target.value)
+                          }
+                          placeholder="Notes"
+                        />
+                      </td>
+                      <td className="px-2 py-1 text-center align-middle">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 text-xs"
+                          onClick={() => removeItem(idx)}
+                          disabled={items.length === 1}
+                        >
+                          ✕
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addItem}
+            >
+              Add row
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary under items */}
+        <div className="space-y-2 rounded-md border bg-background p-4">
+          <div className="text-sm font-medium text-muted-foreground">
+            Summary
+          </div>
+          <div className="space-y-1 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-mono">{subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Total discount</span>
+              <span className="font-mono">{totalDiscount.toFixed(2)}</span>
             </div>
           </div>
+          <div className="mt-2 border-t pt-2">
+            <div className="flex items-center justify-between text-base font-semibold">
+              <span>Net total</span>
+              <span className="font-mono">{netTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="mb-2 block text-sm font-medium">
+            Notes / Terms
+          </label>
+          <textarea
+            className="flex h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={notes}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+              setNotes(e.target.value)
+            }
+            placeholder="Additional information or terms for this quotation"
+          />
+        </div>
+
+        {/* Actions + errors */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-2">
             <Button type="submit" disabled={submitting}>
               {submitting ? "Saving…" : "Save"}
@@ -511,14 +648,12 @@ export function QuotationForm({
             </Button>
           </div>
           {formError && (
-            <div className="text-sm text-red-600 whitespace-pre-wrap">
+            <div className="whitespace-pre-wrap text-sm text-red-600">
               {formError}
             </div>
           )}
         </div>
-      </div>
     </form>
   );
 }
-
 

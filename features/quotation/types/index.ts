@@ -9,6 +9,8 @@ export interface QuotationItem {
   id: string;
   productId: string;
   productName?: string; // Optional for backward compatibility
+  batchNumber?: string | null;
+  expiryDate?: string | null;
   quantity: number;
   unitPrice: number | string; // API may return string
   discount: number | string; // API may return string
