@@ -121,6 +121,11 @@ export default function QuotationsPage() {
                       <Button asChild variant="outline" size="sm">
                         <Link href={`/quotations/${q.id}/edit`}>Edit</Link>
                       </Button>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/requisition?quotationId=${q.id}`}>
+                          Requisition
+                        </Link>
+                      </Button>
                     </td>
                   </tr>
                 ))

@@ -72,7 +72,7 @@ const data = {
       permissions: ["manufacturers.read", "manufacturers.create", "manufacturers.update", "manufacturers.delete"],
     },
     {
-      title: "Quotations",
+      title: "Requisition",
       url: "/quotations",
       icon: IconChartBar,
       permissions: ["quotations.read", "quotations.create", "quotations.update", "quotations.delete", "quotations.accept"],
@@ -88,12 +88,6 @@ const data = {
       url: "/purchases",
       icon: IconChartBar,
       permissions: ["purchases.read", "purchases.create", "purchases.update", "purchases.delete"],
-    },
-    {
-      title: "Requisition",
-      url: "/requisition",
-      icon: IconChartBar,
-      permissions: ["purchases.read", "purchases.create", "products.read"],
     },
     {
       title: "Customers",
@@ -326,15 +320,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           "/categories",
           "/manufacturers",
         ]),
-        // Sales and quotations
-        makeGroup("Sales & Quotations", IconChartBar, [
+        // Sales and requisition (quotation)
+        makeGroup("Sales & Requisition", IconChartBar, [
           "/quotations",
           "/sales",
         ]),
-        // Purchasing & requisition
+        // Purchasing
         makeGroup("Purchasing", IconChartBar, [
           "/purchases",
-          "/requisition",
         ]),
         // People
         makeGroup("People", IconUsers, [
