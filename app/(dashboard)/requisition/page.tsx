@@ -199,10 +199,12 @@ const RequisitionPage: React.FC = () => {
                     {item?.product?.name ?? item?.productName ?? ""}
                   </td>
                   <td className="border border-black px-1 text-center text-[10px]">
-                    {/* Batch is selected on sale; leave blank */}
+                    {item?.batchNumber || ""}
                   </td>
                   <td className="border border-black px-1 text-center text-[10px]">
-                    {/* Expiry optional / blank */}
+                    {item?.expiryDate
+                      ? new Date(item.expiryDate).toISOString().split("T")[0]
+                      : ""}
                   </td>
                   <td className="border border-black px-1 text-center text-[10px]">
                     {/* unit (if you later add per-product unit) */}

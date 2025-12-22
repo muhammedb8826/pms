@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/select";
 import { useAllCustomers } from "@/features/customer/hooks/useCustomers";
 import { useAllProducts } from "@/features/product/hooks/useProducts";
+import { useAvailableBatchesForProduct } from "@/features/batch/hooks/useBatches";
 import type { Customer } from "@/features/customer/types";
 import type { Product } from "@/features/product/types";
+import type { Batch } from "@/features/batch/types";
 import {
   useCreateQuotation,
   useUpdateQuotation,
@@ -61,8 +63,79 @@ export interface QuotationFormProps {
   formId?: string;
 }
 
+// Component for batch selection that auto-fills expiry date
+function QuotationItemBatchSelect({
+  productId,
+  batchId,
+  batchNumber,
+  onBatchChange,
+}: {
+  productId: string;
+  batchId?: string;
+  batchNumber?: string;
+  onBatchChange: (batchId: string, batchNumber: string, expiryDate: string) => void;
+}) {
+  const { batches, loading } = useAvailableBatchesForProduct(productId || undefined);
+
+  // When editing, try to match batchNumber to a batch
+  useEffect(() => {
+    if (batchNumber && !batchId && batches.length > 0) {
+      const matchedBatch = batches.find((b) => b.batchNumber === batchNumber);
+      if (matchedBatch) {
+        onBatchChange(
+          matchedBatch.id,
+          matchedBatch.batchNumber,
+          matchedBatch.expiryDate,
+        );
+      }
+    }
+  }, [batchNumber, batchId, batches, onBatchChange]);
+
+  if (!productId) {
+    return (
+      <Input className="h-8" placeholder="Select product first" disabled />
+    );
+  }
+
+  if (loading) {
+    return <Input className="h-8" placeholder="Loading batches..." disabled />;
+  }
+
+  if (batches.length === 0) {
+    return <Input className="h-8" placeholder="No batches available" disabled />;
+  }
+
+  return (
+    <Select
+      value={batchId || undefined}
+      onValueChange={(v) => {
+        const selectedBatch = batches.find((b) => b.id === v);
+        if (selectedBatch) {
+          onBatchChange(
+            selectedBatch.id,
+            selectedBatch.batchNumber,
+            selectedBatch.expiryDate,
+          );
+        }
+      }}
+    >
+      <SelectTrigger className="h-8">
+        <SelectValue placeholder="Select batch" />
+      </SelectTrigger>
+      <SelectContent>
+        {batches.map((batch: Batch) => (
+          <SelectItem key={batch.id} value={batch.id}>
+            {batch.batchNumber} (Exp: {new Date(batch.expiryDate).toISOString().split("T")[0]})
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 type ItemState = {
   productId: string;
+  batchId?: string;
   batchNumber?: string;
   expiryDate?: string;
   quantity: number;
@@ -100,8 +173,9 @@ export function QuotationForm({
           const discount = typeof it.discount === 'string' ? parseFloat(it.discount) || 0 : (it.discount || 0);
           return {
             productId,
-            batchNumber: it.batchNumber ?? undefined,
-            expiryDate: it.expiryDate ?? undefined,
+            batchId: "",
+            batchNumber: it.batchNumber || "",
+            expiryDate: it.expiryDate || "",
             quantity: Number(it.quantity) || 0,
             unitPrice,
             discount,
@@ -111,6 +185,7 @@ export function QuotationForm({
       : [
           {
             productId: "",
+            batchId: "",
             batchNumber: "",
             expiryDate: "",
             quantity: 1,
@@ -160,7 +235,7 @@ export function QuotationForm({
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { productId: "", batchNumber: "", expiryDate: "", quantity: 1, unitPrice: 0, discount: 0 },
+      { productId: "", batchId: "", batchNumber: "", expiryDate: "", quantity: 1, unitPrice: 0, discount: 0 },
     ]);
   }
 
@@ -233,6 +308,8 @@ export function QuotationForm({
 
       const itemDtos: CreateQuotationItemDto[] = parsed.items.map((it) => ({
         productId: it.productId,
+        batchNumber: it.batchNumber || null,
+        expiryDate: it.expiryDate || null,
         quantity: it.quantity,
         unitPrice: it.unitPrice,
         discount: it.discount ?? 0,
@@ -434,28 +511,14 @@ export function QuotationForm({
                         <Select
                           value={it.productId || undefined}
                           onValueChange={(v) => {
-                            const selectedProduct = products.find(
-                              (p) => p.id === v,
-                            );
                             setItems((prev) => {
                               const draft = [...prev];
-                              const current = draft[idx] ?? {
-                                productId: "",
-                                quantity: 1,
-                                unitPrice: 0,
-                                discount: 0,
-                              };
                               draft[idx] = {
-                                ...current,
+                                ...draft[idx],
                                 productId: v || "",
-                                // Auto-fill batch number if empty using product code or name.
-                                batchNumber:
-                                  current.batchNumber &&
-                                  current.batchNumber.trim().length > 0
-                                    ? current.batchNumber
-                                    : selectedProduct?.productCode ||
-                                      selectedProduct?.name ||
-                                      "",
+                                batchId: "",
+                                batchNumber: "",
+                                expiryDate: "",
                               };
                               return draft;
                             });
@@ -484,13 +547,22 @@ export function QuotationForm({
                         </Select>
                       </td>
                       <td className="px-2 py-1 align-middle">
-                        <Input
-                          className="h-8"
-                          placeholder="Batch"
-                          value={it.batchNumber ?? ""}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            updateItem(idx, "batchNumber", e.target.value)
-                          }
+                        <QuotationItemBatchSelect
+                          productId={it.productId}
+                          batchId={it.batchId}
+                          batchNumber={it.batchNumber}
+                          onBatchChange={(batchId, batchNumber, expiryDate) => {
+                            setItems((prev) => {
+                              const draft = [...prev];
+                              draft[idx] = {
+                                ...draft[idx],
+                                batchId,
+                                batchNumber,
+                                expiryDate,
+                              };
+                              return draft;
+                            });
+                          }}
                         />
                       </td>
                       <td className="px-2 py-1 align-middle">
@@ -498,9 +570,7 @@ export function QuotationForm({
                           className="h-8"
                           type="date"
                           value={it.expiryDate ?? ""}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            updateItem(idx, "expiryDate", e.target.value)
-                          }
+                          readOnly
                         />
                       </td>
                       <td className="px-2 py-1 align-middle">

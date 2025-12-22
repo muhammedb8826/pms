@@ -58,6 +58,8 @@ export interface Quotation {
 
 export interface CreateQuotationItemDto {
   productId: string;
+  batchNumber?: string | null;
+  expiryDate?: string | null;
   quantity: number;
   unitPrice: number;
   discount?: number;
