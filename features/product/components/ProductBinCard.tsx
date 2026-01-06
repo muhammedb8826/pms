@@ -1,16 +1,18 @@
 import React from 'react';
 import { useGetProductBinCardQuery } from '../api/productApi';
 import { format } from 'date-fns';
+import { getResponseData } from '@/lib/utils/api-response';
+import { BinCardEntry } from '../types';
 
 interface ProductBinCardProps {
   productId: string;
 }
 
 export const ProductBinCard: React.FC<ProductBinCardProps> = ({ productId }) => {
-  const { data: entries, isLoading, isError } = useGetProductBinCardQuery(productId);
-
+    const { data: response, isLoading, error } = useGetProductBinCardQuery(productId);
+    const entries = getResponseData<BinCardEntry[]>(response);
   if (isLoading) return <div className="p-4">Loading stock ledger...</div>;
-  if (isError) return <div className="p-4 text-red-500">Failed to load bin card.</div>;
+  if (error) return <div className="p-4 text-red-500">Failed to load bin card.</div>;
 
   return (
     <div className="flex flex-col border border-gray-300 rounded-sm bg-white overflow-hidden">
@@ -36,7 +38,7 @@ export const ProductBinCard: React.FC<ProductBinCardProps> = ({ productId }) => 
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-          {Array.isArray(entries) ? (
+          {entries && entries.length > 0 && Array.isArray(entries) ? (
     entries.map((entry) => (
               <tr key={entry.id} className="hover:bg-gray-50">
                 <td className="border border-gray-300 px-2 py-1 whitespace-nowrap">
