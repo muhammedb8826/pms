@@ -70,3 +70,22 @@ export interface ImportResult {
   products: Product[];
 }
 
+
+export interface BinCardEntry {
+  id: string;
+  productId: string;
+  batchId?: string;
+  documentNo: string;      // Doc. No.
+  entityName: string;      // Received from / Issued to
+  quantityIn: number;      // Received
+  quantityOut: number;     // Issued
+  lossAdjustment: number;  // Loss/Adj
+  balance: number;         // Total Balance
+  unitPrice: number;       // Unit Price (Birr/Cc)
+  remark: string;          // Remark
+  createdAt: string;       // Date
+  batch?: {
+    batchNumber: string;
+    expiryDate: string;
+  };
+}

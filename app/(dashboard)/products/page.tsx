@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import type { ColumnDef } from '@tanstack/react-table';
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   IconDotsVertical,
   IconFileDownload,
@@ -10,21 +10,27 @@ import {
   IconPlus,
   IconSettings,
   IconUpload,
-} from '@tabler/icons-react';
-import Image from 'next/image';
-import { toast } from 'sonner';
+} from "@tabler/icons-react";
+import Image from "next/image";
+import { toast } from "sonner";
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,21 +40,31 @@ import {
   AlertDialogFooter as AlertFooter,
   AlertDialogHeader as AlertHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { DashboardDataTable } from '@/components/dashboard-data-table';
-import { handleApiError, handleApiSuccess } from '@/lib/utils/api-error-handler';
-import { useProducts, useDeleteProduct } from '@/features/product/hooks/useProducts';
+} from "@/components/ui/alert-dialog";
+import { DashboardDataTable } from "@/components/dashboard-data-table";
+import {
+  handleApiError,
+  handleApiSuccess,
+} from "@/lib/utils/api-error-handler";
+import {
+  useProducts,
+  useDeleteProduct,
+} from "@/features/product/hooks/useProducts";
 import {
   useImportProductsMutation,
   useLazyDownloadProductTemplateQuery,
-} from '@/features/product/api/productApi';
-import type { Product } from '@/features/product/types';
-import { convertFromBase, formatQuantityWithUom } from '@/features/uom/utils/uomConversion';
-import { resolveImageUrl } from '@/lib/utils/image-url';
+} from "@/features/product/api/productApi";
+import type { Product } from "@/features/product/types";
+import {
+  convertFromBase,
+  formatQuantityWithUom,
+} from "@/features/uom/utils/uomConversion";
+import { resolveImageUrl } from "@/lib/utils/image-url";
+import { ProductBinCard } from "@/features/product/components/ProductBinCard";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'ETB',
+  style: "currency",
+  currency: "ETB",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -59,97 +75,123 @@ export default function ProductsPage() {
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<string>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
-  const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  const [importResult, setImportResult] = useState<{
+    success: number;
+    failed: number;
+    errors: string[];
+  } | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const { products, total, loading, error, refetch } = useProducts(page, pageSize, {
-    search,
-    sortBy,
-    sortOrder,
-  });
-  const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize) || 1), [total, pageSize]);
+  const { products, total, loading, error, refetch } = useProducts(
+    page,
+    pageSize,
+    {
+      search,
+      sortBy,
+      sortOrder,
+    }
+  );
+  const pageCount = useMemo(
+    () => Math.max(1, Math.ceil(total / pageSize) || 1),
+    [total, pageSize]
+  );
 
   const deleteMutation = useDeleteProduct();
-  const [importProducts, { isLoading: isImporting }] = useImportProductsMutation();
-  const [downloadTemplate, { isLoading: isDownloadingTemplate }] = useLazyDownloadProductTemplateQuery();
-
+  const [importProducts, { isLoading: isImporting }] =
+    useImportProductsMutation();
+  const [downloadTemplate, { isLoading: isDownloadingTemplate }] =
+    useLazyDownloadProductTemplateQuery();
 
   const handleEdit = useCallback(
     (product: Product) => {
       router.push(`/products/${product.id}/edit`);
     },
-    [router],
+    [router]
   );
 
   const handleDelete = useCallback(
     async (id: string) => {
       try {
         const result = await deleteMutation.mutateAsync(id);
-        if (result && typeof result === 'object' && 'error' in result && result.error) {
-          handleApiError(result.error, { defaultMessage: 'Failed to delete product' });
+        if (
+          result &&
+          typeof result === "object" &&
+          "error" in result &&
+          result.error
+        ) {
+          handleApiError(result.error, {
+            defaultMessage: "Failed to delete product",
+          });
           return;
         }
         setConfirmDeleteId(null);
         refetch();
-        handleApiSuccess('Product deleted successfully');
+        handleApiSuccess("Product deleted successfully");
       } catch (err) {
-        handleApiError(err, { defaultMessage: 'Failed to delete product' });
+        handleApiError(err, { defaultMessage: "Failed to delete product" });
       }
     },
-    [deleteMutation, refetch],
+    [deleteMutation, refetch]
   );
 
   const columns = useMemo<ColumnDef<Product>[]>(() => {
     return [
       {
-        accessorKey: 'name',
-        header: 'Product',
+        accessorKey: "name",
+        header: "Product",
         cell: ({ row }) => {
           const product = row.original;
           return (
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold">
-                {product.name}
-              </span>
+              <span className="text-sm font-semibold">{product.name}</span>
               {product.genericName ? (
-                <span className="text-xs text-muted-foreground">{product.genericName}</span>
+                <span className="text-xs text-muted-foreground">
+                  {product.genericName}
+                </span>
               ) : null}
             </div>
           );
         },
       },
       {
-        accessorKey: 'category',
-        header: 'Category',
-        cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.category?.name ?? '—'}</span>,
-      },
-      {
-        accessorKey: 'manufacturer',
-        header: 'Manufacturer',
+        accessorKey: "category",
+        header: "Category",
         cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">{row.original.manufacturer?.name ?? '—'}</span>
+          <span className="text-sm text-muted-foreground">
+            {row.original.category?.name ?? "—"}
+          </span>
         ),
       },
       {
-        accessorKey: 'defaultUom',
-        header: 'Default UOM',
+        accessorKey: "manufacturer",
+        header: "Manufacturer",
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.manufacturer?.name ?? "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "defaultUom",
+        header: "Default UOM",
         cell: ({ row }) => {
           const uom = row.original.defaultUom;
-          if (!uom) return <span className="text-sm text-muted-foreground">—</span>;
+          if (!uom)
+            return <span className="text-sm text-muted-foreground">—</span>;
           return (
             <span className="text-sm text-muted-foreground">
               {uom.name}
-              {uom.abbreviation ? ` (${uom.abbreviation})` : ''}
+              {uom.abbreviation ? ` (${uom.abbreviation})` : ""}
             </span>
           );
         },
       },
       {
-        accessorKey: 'quantity',
+        accessorKey: "quantity",
         header: () => <div className="text-right">Qty</div>,
         cell: ({ row }) => {
           const product = row.original;
@@ -158,12 +200,20 @@ export default function ProductsPage() {
           const displayQuantity = product.defaultUom
             ? convertFromBase(quantityInBase, product.defaultUom)
             : quantityInBase;
-          const displayText = formatQuantityWithUom(displayQuantity, product.defaultUom, 2);
-          return <div className="text-right text-sm font-medium tabular-nums">{displayText}</div>;
+          const displayText = formatQuantityWithUom(
+            displayQuantity,
+            product.defaultUom,
+            2
+          );
+          return (
+            <div className="text-right text-sm font-medium tabular-nums">
+              {displayText}
+            </div>
+          );
         },
       },
       {
-        accessorKey: 'purchasePrice',
+        accessorKey: "purchasePrice",
         header: () => <div className="hidden text-right lg:block">Buy</div>,
         cell: ({ row }) => (
           <div className="hidden text-right text-sm text-muted-foreground tabular-nums lg:block">
@@ -172,7 +222,7 @@ export default function ProductsPage() {
         ),
       },
       {
-        accessorKey: 'sellingPrice',
+        accessorKey: "sellingPrice",
         header: () => <div className="text-right">Sell</div>,
         cell: ({ row }) => (
           <div className="text-right text-sm font-medium tabular-nums">
@@ -181,16 +231,22 @@ export default function ProductsPage() {
         ),
       },
       {
-        accessorKey: 'status',
-        header: 'Status',
+        accessorKey: "status",
+        header: "Status",
         cell: ({ row }) => (
-          <Badge variant={row.original.status?.toLowerCase() === 'active' ? 'default' : 'outline'}>
-            {row.original.status ?? '—'}
+          <Badge
+            variant={
+              row.original.status?.toLowerCase() === "active"
+                ? "default"
+                : "outline"
+            }
+          >
+            {row.original.status ?? "—"}
           </Badge>
         ),
       },
       {
-        id: 'actions',
+        id: "actions",
         header: () => (
           <div className="flex justify-end text-muted-foreground">
             <IconSettings className="size-4" aria-hidden />
@@ -199,7 +255,7 @@ export default function ProductsPage() {
         cell: ({ row }) => {
           const product = row.original;
           return (
-            <div 
+            <div
               className="flex justify-end"
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
@@ -222,13 +278,20 @@ export default function ProductsPage() {
                     <IconDotsVertical />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  align="end" 
+                <DropdownMenuContent
+                  align="end"
                   className="w-48"
                   onPointerDown={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      router.push(`/products/${product.id}/bin-card`)
+                    }
+                  >
+                    View Bin Card
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
@@ -249,11 +312,11 @@ export default function ProductsPage() {
                       event.stopPropagation();
                       // Prevent row click by temporarily disabling pointer events on the row
                       const target = event.target as HTMLElement;
-                      const row = target.closest('tr');
+                      const row = target.closest("tr");
                       if (row) {
-                        (row as HTMLElement).style.pointerEvents = 'none';
+                        (row as HTMLElement).style.pointerEvents = "none";
                         setTimeout(() => {
-                          (row as HTMLElement).style.pointerEvents = '';
+                          (row as HTMLElement).style.pointerEvents = "";
                         }, 100);
                       }
                       setConfirmDeleteId(product.id);
@@ -263,11 +326,11 @@ export default function ProductsPage() {
                       e.stopPropagation();
                       // Prevent row click by temporarily disabling pointer events on the row
                       const target = e.target as HTMLElement;
-                      const row = target.closest('tr');
+                      const row = target.closest("tr");
                       if (row) {
-                        (row as HTMLElement).style.pointerEvents = 'none';
+                        (row as HTMLElement).style.pointerEvents = "none";
                         setTimeout(() => {
-                          (row as HTMLElement).style.pointerEvents = '';
+                          (row as HTMLElement).style.pointerEvents = "";
                         }, 100);
                       }
                       setConfirmDeleteId(product.id);
@@ -297,16 +360,16 @@ export default function ProductsPage() {
       if (!file) return;
       try {
         if (!/\.(xlsx|xls)$/i.test(file.name)) {
-          toast.error('Please select an Excel file (.xlsx or .xls)');
+          toast.error("Please select an Excel file (.xlsx or .xls)");
           if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+            fileInputRef.current.value = "";
           }
           return;
         }
         if (file.size > 10 * 1024 * 1024) {
-          toast.error('File size must be less than 10MB');
+          toast.error("File size must be less than 10MB");
           if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+            fileInputRef.current.value = "";
           }
           return;
         }
@@ -317,7 +380,11 @@ export default function ProductsPage() {
           errors: result.errors || [],
         });
         if (result.success > 0) {
-          handleApiSuccess(`Successfully imported ${result.success} product${result.success === 1 ? '' : 's'}`);
+          handleApiSuccess(
+            `Successfully imported ${result.success} product${
+              result.success === 1 ? "" : "s"
+            }`
+          );
         }
         if (result.failed > 0 || (result.errors && result.errors.length > 0)) {
           setShowImportDialog(true);
@@ -326,34 +393,36 @@ export default function ProductsPage() {
           refetch();
         }
       } catch (err) {
-        handleApiError(err, { defaultMessage: 'Import failed' });
+        handleApiError(err, { defaultMessage: "Import failed" });
       } finally {
         // Use ref instead of event.currentTarget to avoid null reference errors
         if (fileInputRef.current) {
-          fileInputRef.current.value = '';
+          fileInputRef.current.value = "";
         }
       }
     },
-    [importProducts, refetch],
+    [importProducts, refetch]
   );
 
   const handleDownloadTemplate = useCallback(async () => {
     try {
       const { data: blob } = await downloadTemplate();
       if (!blob) {
-        handleApiError(new Error('Template not available'), { defaultMessage: 'Template not available' });
+        handleApiError(new Error("Template not available"), {
+          defaultMessage: "Template not available",
+        });
         return;
       }
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = 'product-import-template.xlsx';
+      link.download = "product-import-template.xlsx";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      handleApiError(err, { defaultMessage: 'Failed to download template' });
+      handleApiError(err, { defaultMessage: "Failed to download template" });
     }
   }, [downloadTemplate]);
 
@@ -362,11 +431,13 @@ export default function ProductsPage() {
       <div className="space-y-6">
         {product.image ? (
           <div className="rounded-lg border bg-muted/30 p-4">
-            <div className="mb-2 text-xs text-muted-foreground">Product image</div>
+            <div className="mb-2 text-xs text-muted-foreground">
+              Product image
+            </div>
             <div className="relative aspect-square w-full overflow-hidden rounded-md bg-background">
               <Image
                 fill
-                src={resolveImageUrl(product.image) || '/placeholder-image.png'}
+                src={resolveImageUrl(product.image) || "/placeholder-image.png"}
                 alt={product.name}
                 className="object-contain"
               />
@@ -376,19 +447,27 @@ export default function ProductsPage() {
         <div className="grid gap-4 text-sm">
           <div>
             <div className="text-xs text-muted-foreground">Category</div>
-            <div className="font-medium text-foreground">{product.category?.name ?? '—'}</div>
+            <div className="font-medium text-foreground">
+              {product.category?.name ?? "—"}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-xs text-muted-foreground">Manufacturer</div>
-              <div className="font-medium text-foreground">{product.manufacturer?.name ?? '—'}</div>
+              <div className="font-medium text-foreground">
+                {product.manufacturer?.name ?? "—"}
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Default UOM</div>
               <div className="font-medium text-foreground">
                 {product.defaultUom
-                  ? `${product.defaultUom.name}${product.defaultUom.abbreviation ? ` (${product.defaultUom.abbreviation})` : ''}`
-                  : '—'}
+                  ? `${product.defaultUom.name}${
+                      product.defaultUom.abbreviation
+                        ? ` (${product.defaultUom.abbreviation})`
+                        : ""
+                    }`
+                  : "—"}
               </div>
             </div>
             <div>
@@ -399,16 +478,24 @@ export default function ProductsPage() {
                   const displayQuantity = product.defaultUom
                     ? convertFromBase(quantityInBase, product.defaultUom)
                     : quantityInBase;
-                  return formatQuantityWithUom(displayQuantity, product.defaultUom, 2);
+                  return formatQuantityWithUom(
+                    displayQuantity,
+                    product.defaultUom,
+                    2
+                  );
                 })()}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Min level</div>
-              <div className="font-medium tabular-nums">{product.minLevel ?? '—'}</div>
+              <div className="font-medium tabular-nums">
+                {product.minLevel ?? "—"}
+              </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Purchase price</div>
+              <div className="text-xs text-muted-foreground">
+                Purchase price
+              </div>
               <div className="font-medium tabular-nums">
                 {currencyFormatter.format(Number(product.purchasePrice ?? 0))}
               </div>
@@ -420,10 +507,30 @@ export default function ProductsPage() {
               </div>
             </div>
           </div>
+
+          {/* NEW: Bin Card Section */}
+          <div className="mt-6 pt-6 border-t">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Stock Movement History (Bin Card)
+              </h3>
+              <Badge variant="outline">Ledger</Badge>
+            </div>
+
+            {/* Render the Bin Card component here */}
+            <div className="rounded-md border bg-card">
+              <ProductBinCard productId={product?.id || ""} />
+            </div>
+          </div>
+
           {product.description ? (
             <div>
-              <div className="mb-1 text-xs text-muted-foreground">Description</div>
-              <p className="whitespace-pre-wrap text-foreground">{product.description}</p>
+              <div className="mb-1 text-xs text-muted-foreground">
+                Description
+              </div>
+              <p className="whitespace-pre-wrap text-foreground">
+                {product.description}
+              </p>
             </div>
           ) : null}
         </div>
@@ -441,10 +548,14 @@ export default function ProductsPage() {
         <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
           <div>
             <h1 className="text-xl font-semibold">Products</h1>
-            <p className="text-sm text-muted-foreground">Manage your product catalogue, pricing, and availability.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Total products: {total}</p>
+            <p className="text-sm text-muted-foreground">
+              Manage your product catalogue, pricing, and availability.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Total products: {total}
+            </p>
           </div>
-          <Button onClick={() => router.push('/products/new')}>
+          <Button onClick={() => router.push("/products/new")}>
             <IconPlus className="mr-2 size-4" />
             Add Product
           </Button>
@@ -469,9 +580,9 @@ export default function ProductsPage() {
           enableColumnVisibility={true}
           renderDetails={renderDetails}
           detailsTitle={(product) => product.name}
-          detailsDescription={(product) => product.genericName || ''}
+          detailsDescription={(product) => product.genericName || ""}
           renderDetailsFooter={(product, onClose) => (
-            <Button 
+            <Button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -480,7 +591,7 @@ export default function ProductsPage() {
                 setTimeout(() => {
                   router.push(`/products/${product.id}/edit`);
                 }, 0);
-              }} 
+              }}
               className="w-full"
             >
               <IconPencil className="mr-2 size-4" />
@@ -501,7 +612,7 @@ export default function ProductsPage() {
               <Select
                 value={sortBy}
                 onValueChange={(value) => {
-                  setSortBy(value || 'name');
+                  setSortBy(value || "name");
                   setPage(1);
                 }}
               >
@@ -521,7 +632,8 @@ export default function ProductsPage() {
               <Select
                 value={sortOrder}
                 onValueChange={(value) => {
-                  const next = (value?.toUpperCase() as 'ASC' | 'DESC') || 'ASC';
+                  const next =
+                    (value?.toUpperCase() as "ASC" | "DESC") || "ASC";
                   setSortOrder(next);
                   setPage(1);
                 }}
@@ -538,14 +650,28 @@ export default function ProductsPage() {
           }
           headerActions={
             <div className="flex flex-wrap items-center gap-2">
-              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportChange} />
-              <Button variant="outline" onClick={handleImportClick} disabled={isImporting}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleImportChange}
+              />
+              <Button
+                variant="outline"
+                onClick={handleImportClick}
+                disabled={isImporting}
+              >
                 <IconUpload className="mr-2 size-4" />
-                {isImporting ? 'Importing...' : 'Import'}
+                {isImporting ? "Importing..." : "Import"}
               </Button>
-              <Button variant="outline" onClick={handleDownloadTemplate} disabled={isDownloadingTemplate}>
+              <Button
+                variant="outline"
+                onClick={handleDownloadTemplate}
+                disabled={isDownloadingTemplate}
+              >
                 <IconFileDownload className="mr-2 size-4" />
-                {isDownloadingTemplate ? 'Downloading...' : 'Template'}
+                {isDownloadingTemplate ? "Downloading..." : "Template"}
               </Button>
             </div>
           }
@@ -559,7 +685,8 @@ export default function ProductsPage() {
             <AlertDialogTitle>Import Results</AlertDialogTitle>
             {importResult && (
               <AlertDesc>
-                Import completed with {importResult.success} successful and {importResult.failed} failed.
+                Import completed with {importResult.success} successful and{" "}
+                {importResult.failed} failed.
               </AlertDesc>
             )}
           </AlertHeader>
@@ -567,12 +694,20 @@ export default function ProductsPage() {
             <div className="space-y-4 mt-4">
               <div className="flex gap-4">
                 <div className="flex-1 rounded-lg border bg-green-50 dark:bg-green-950/20 p-3">
-                  <div className="text-sm font-medium text-green-900 dark:text-green-100">Successfully Imported</div>
-                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">{importResult.success}</div>
+                  <div className="text-sm font-medium text-green-900 dark:text-green-100">
+                    Successfully Imported
+                  </div>
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                    {importResult.success}
+                  </div>
                 </div>
                 <div className="flex-1 rounded-lg border bg-red-50 dark:bg-red-950/20 p-3">
-                  <div className="text-sm font-medium text-red-900 dark:text-red-100">Failed</div>
-                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">{importResult.failed}</div>
+                  <div className="text-sm font-medium text-red-900 dark:text-red-100">
+                    Failed
+                  </div>
+                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+                    {importResult.failed}
+                  </div>
                 </div>
               </div>
               {importResult.errors && importResult.errors.length > 0 && (
@@ -580,7 +715,10 @@ export default function ProductsPage() {
                   <div className="text-sm font-medium mb-2">Errors:</div>
                   <div className="max-h-64 overflow-y-auto space-y-1">
                     {importResult.errors.map((error, index) => (
-                      <div key={index} className="text-sm text-muted-foreground p-2 rounded bg-muted">
+                      <div
+                        key={index}
+                        className="text-sm text-muted-foreground p-2 rounded bg-muted"
+                      >
                         {error}
                       </div>
                     ))}
@@ -590,7 +728,9 @@ export default function ProductsPage() {
             </div>
           )}
           <AlertFooter>
-            <AlertDialogAction onClick={() => setShowImportDialog(false)}>Close</AlertDialogAction>
+            <AlertDialogAction onClick={() => setShowImportDialog(false)}>
+              Close
+            </AlertDialogAction>
           </AlertFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -609,11 +749,14 @@ export default function ProductsPage() {
             <AlertDialogTitle>Delete product?</AlertDialogTitle>
           </AlertHeader>
           <AlertDesc>
-            This action will permanently delete{' '}
-            {confirmDeleteId && products.find((p) => p.id === confirmDeleteId) ? (
-              <span className="font-medium">{products.find((p) => p.id === confirmDeleteId)?.name}</span>
+            This action will permanently delete{" "}
+            {confirmDeleteId &&
+            products.find((p) => p.id === confirmDeleteId) ? (
+              <span className="font-medium">
+                {products.find((p) => p.id === confirmDeleteId)?.name}
+              </span>
             ) : (
-              'this product'
+              "this product"
             )}
             . This cannot be undone.
           </AlertDesc>
@@ -636,4 +779,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-

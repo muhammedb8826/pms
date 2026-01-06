@@ -5,6 +5,7 @@ import type {
   Product,
   UpdateProductDto,
   ImportResult,
+  BinCardEntry,
 } from '@/features/product/types';
 
 export const productApi = baseApi.injectEndpoints({
@@ -99,6 +100,13 @@ export const productApi = baseApi.injectEndpoints({
         'Products',
       ],
     }),
+
+    getProductBinCard: builder.query<BinCardEntry[], string>({
+      query: (productId) => `/products/${productId}/bin-card`,
+      // We use a specific tag so the bin card refreshes when products/sales/purchases change
+      providesTags: (result, error, id) => [{ type: 'Product', id }, 'Products'],
+    }),
+    
     getProductsByCategory: builder.query<Product[], string>({
       query: (categoryId) => `/products/category/${categoryId}`,
       providesTags: ['Products'],
@@ -161,5 +169,6 @@ export const {
   useDownloadProductTemplateQuery,
   useLazyDownloadProductTemplateQuery,
   useImportProductsSimpleMutation,
+  useGetProductBinCardQuery,
 } = productApi;
 
