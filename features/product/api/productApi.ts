@@ -7,6 +7,7 @@ import type {
   ImportResult,
   BinCardEntry,
 } from '@/features/product/types';
+import { PaginationMeta } from '@/types/api-response';
 
 export const productApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -106,6 +107,23 @@ export const productApi = baseApi.injectEndpoints({
       // We use a specific tag so the bin card refreshes when products/sales/purchases change
       providesTags: (result, error, id) => [{ type: 'Product', id }, 'Products'],
     }),
+
+    getAllStockMovements: builder.query<
+      { success: boolean; data: BinCardEntry[]; meta: PaginationMeta },
+      { page?: number; limit?: number; search?: string }
+    >({
+      query: (params = {}) => {
+        const { page = 1, limit = 50, search } = params;
+        const query = new URLSearchParams();
+        query.set('page', String(page));
+        query.set('limit', String(limit));
+        if (search) query.set('search', search);
+        
+        return `/products/bin-cards/movements?${query.toString()}`;
+      },
+      // This ensures the list updates whenever any product or general stock changes
+      providesTags: ['Products'],
+    }),
     
     getProductsByCategory: builder.query<Product[], string>({
       query: (categoryId) => `/products/category/${categoryId}`,
@@ -170,5 +188,6 @@ export const {
   useLazyDownloadProductTemplateQuery,
   useImportProductsSimpleMutation,
   useGetProductBinCardQuery,
+  useGetAllStockMovementsQuery,
 } = productApi;
 

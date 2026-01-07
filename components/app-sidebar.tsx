@@ -72,6 +72,12 @@ const data = {
       permissions: ["manufacturers.read", "manufacturers.create", "manufacturers.update", "manufacturers.delete"],
     },
     {
+      title: "Bin Card",
+      url: "/bin-card",
+      icon: IconFolder,
+      permissions: ["products.read", "products.create", "products.update", "products.delete", "products.import"],
+    },
+    {
       title: "Requisition",
       url: "/quotations",
       icon: IconChartBar,
@@ -132,54 +138,7 @@ const data = {
       permissions: ["commissions.read", "commissions.create", "commissions.update", "commissions.delete", "commissions.pay"],
     },
   ],
-  // navClouds: [
-  //   {
-  //     title: "Capture",
-  //     icon: IconCamera,
-  //     isActive: true,
-  //     url: "#",
-  //     items: [
-  //       {
-  //         title: "Active Proposals",
-  //         url: "#",
-  //       },
-  //       {
-  //         title: "Archived",
-  //         url: "#",
-  //       },
-  //     ],
-  //   },
-  //   {
-  //     title: "Proposal",
-  //     icon: IconFileDescription,
-  //     url: "#",
-  //     items: [
-  //       {
-  //         title: "Active Proposals",
-  //         url: "#",
-  //       },
-  //       {
-  //         title: "Archived",
-  //         url: "#",
-  //       },
-  //     ],
-  //   },
-  //   {
-  //     title: "Prompts",
-  //     icon: IconFileAi,
-  //     url: "#",
-  //     items: [
-  //       {
-  //         title: "Active Proposals",
-  //         url: "#",
-  //       },
-  //       {
-  //         title: "Archived",
-  //         url: "#",
-  //       },
-  //     ],
-  //   },
-  // ],
+  
   navSecondary: [
     {
       title: "Notifications",

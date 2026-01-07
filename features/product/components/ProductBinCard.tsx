@@ -48,18 +48,18 @@ export const ProductBinCard: React.FC<ProductBinCardProps> = ({ productId }) => 
                 <td className="border border-gray-300 px-2 py-1 truncate max-w-[150px]">
                   {entry.entityName}
                 </td>
-                <td className="border border-gray-300 px-2 py-1">{entry.batch?.batchNumber || '-'}</td>
+                <td className="border border-gray-300 px-2 py-1">{entry.batch?.batchNumber ?? "-"}</td>
                 <td className="border border-gray-300 px-2 py-1">
-                  {entry.batch?.expiryDate ? format(new Date(entry.batch.expiryDate), 'MM/yy') : '-'}
+                  {entry.batch?.expiryDate ? format(new Date(entry.batch.expiryDate), "MM/yy") : "-"}
                 </td>
                 <td className="border border-gray-300 px-2 py-1 text-green-700 text-center font-medium">
-                  {entry.quantityIn || ''}
+                  {entry.quantityIn || ""}
                 </td>
                 <td className="border border-gray-300 px-2 py-1 text-red-700 text-center font-medium">
-                  {entry.quantityOut || ''}
+                  {entry.quantityOut || ""}
                 </td>
                 <td className="border border-gray-300 px-2 py-1 text-orange-600 text-center">
-                  {entry.lossAdjustment || ''}
+                  {entry.lossAdjustment || ""}
                 </td>
                 <td className="border border-gray-300 px-2 py-1 font-bold text-center bg-gray-50">
                   {entry.balance}

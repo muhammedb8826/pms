@@ -12,7 +12,7 @@ export interface UomRef {
 
 export interface Batch {
   id: string;
-  code?: string;
+  batchNumber?: string;
   expiryDate?: string;
   quantity?: number;
 }
@@ -73,19 +73,19 @@ export interface ImportResult {
 
 export interface BinCardEntry {
   id: string;
+  date: string;
   productId: string;
-  batchId?: string;
-  documentNo: string;      // Doc. No.
-  entityName: string;      // Received from / Issued to
-  quantityIn: number;      // Received
-  quantityOut: number;     // Issued
-  lossAdjustment: number;  // Loss/Adj
-  balance: number;         // Total Balance
-  unitPrice: number;       // Unit Price (Birr/Cc)
-  remark: string;          // Remark
-  createdAt: string;       // Date
-  batch?: {
-    batchNumber: string;
-    expiryDate: string;
-  };
+  batchId: string;
+  documentNo: string;
+  entityName: string;
+  quantityIn: number;
+  quantityOut: number;
+  lossAdjustment: number;
+  balance: number;
+  unitPrice: string;
+  remark: string;
+  createdAt: string;
+  product: Product;
+  batch: Batch;
 }
+
