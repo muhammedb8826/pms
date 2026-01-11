@@ -3,7 +3,7 @@ name: Deploy Next.js App to cPanel via FTP
 on:
   push:
     branches:
-      - develop
+      - main
 
 jobs:
   web-deploy:
@@ -25,7 +25,7 @@ jobs:
       run: |
         rm -f .env.production
         {
-          echo "NEXT_PUBLIC_API_URL=https://pms-api.qenenia.com/api";
+          echo "NEXT_PUBLIC_API_URL=https://api.qalbipharmaplus.com/api";
         } >> .env.production
 
     - name: Build Next.js app
@@ -34,10 +34,10 @@ jobs:
     - name: Deploy to cPanel via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: ${{ secrets.CPANEL_DIR }}
+        server: ${{ secrets.FTP_SERVER_PROD }}
+        username: ${{ secrets.FTP_USERNAME_PROD }}
+        password: ${{ secrets.FTP_PASSWORD_PROD }}
+        server-dir: ${{ secrets.CPANEL_DIR_PROD }}
         local-dir: ./
         protocol: ftp
         exclude: |
