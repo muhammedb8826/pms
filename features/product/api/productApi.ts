@@ -22,7 +22,7 @@ export const productApi = baseApi.injectEndpoints({
       }
     >({
       query: (params = {}) => {
-        const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'DESC' } = params;
+        const { page = 1, limit = 10, search, sortBy = 'name', sortOrder = 'ASC' } = params;
         const query = new URLSearchParams();
         query.set('page', String(page));
         query.set('limit', String(limit));
@@ -43,7 +43,7 @@ export const productApi = baseApi.injectEndpoints({
     >({
       query: (params) => {
         if (!params) return '/products/all';
-        const { search, sortBy, sortOrder } = params;
+        const { search, sortBy = 'name', sortOrder = 'ASC' } = params;
         const query = new URLSearchParams();
         if (search) query.set('search', search);
         if (sortBy) query.set('sortBy', sortBy);
@@ -110,14 +110,16 @@ export const productApi = baseApi.injectEndpoints({
 
     getAllStockMovements: builder.query<
       { success: boolean; data: BinCardEntry[]; meta: PaginationMeta },
-      { page?: number; limit?: number; search?: string }
+      { page?: number; limit?: number; search?: string; startDate?: string; endDate?: string }
     >({
       query: (params = {}) => {
-        const { page = 1, limit = 50, search } = params;
+        const { page = 1, limit = 50, search, startDate, endDate } = params;
         const query = new URLSearchParams();
         query.set('page', String(page));
         query.set('limit', String(limit));
         if (search) query.set('search', search);
+        if (startDate) query.set('startDate', startDate);
+        if (endDate) query.set('endDate', endDate);
         
         return `/products/bin-cards/movements?${query.toString()}`;
       },

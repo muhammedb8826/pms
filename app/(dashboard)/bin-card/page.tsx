@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useGetAllStockMovementsQuery } from "@/features/product/api/productApi";
-import { BinCardEntry } from "@/features/product/types";
+import {
+  useGetAllStockMovementsQuery,
+  useGetAllProductsQuery,
+} from "@/features/product/api/productApi";
+import { BinCardEntry, Product } from "@/features/product/types";
 import { getResponseData } from "@/lib/utils/api-response";
 import { DashboardDataTable } from "@/components/dashboard-data-table";
 
@@ -18,8 +21,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@radix-ui/react-select";
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function BinCardPage() {
   const [selectedEntry, setSelectedEntry] = useState<BinCardEntry | null>(null);
@@ -28,19 +36,98 @@ export default function BinCardPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [productId, setProductId] = useState<string>("");
+  const [transactionType, setTransactionType] = useState<string>("");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   const { data: response, isLoading } = useGetAllStockMovementsQuery({
     page,
     limit: pageSize,
     search,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
   });
 
-  console.log(response);
-  
+  const { data: allProductsResponse } = useGetAllProductsQuery();
 
-  const rawMovements = getResponseData<BinCardEntry[]>(response) ?? [];
-  const total = response?.meta?.total ?? 0;
+  // Get all products for filter dropdown
+  const allProducts = useMemo(() => {
+    const data = allProductsResponse as
+      | Product[]
+      | { success: boolean; data: Product[] }
+      | undefined;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if ("success" in data && data.success && Array.isArray(data.data))
+      return data.data;
+    return [];
+  }, [allProductsResponse]);
+
+  // Filter and sort movements client-side
+  const rawMovements = useMemo(() => {
+    const movements = getResponseData<BinCardEntry[]>(response) ?? [];
+
+    let filtered = [...movements]; // Create a copy to avoid mutating the original array
+
+    // Filter by product
+    if (productId) {
+      filtered = filtered.filter((m) => m.product?.id === productId);
+    }
+
+    // Filter by transaction type
+    if (transactionType === "in") {
+      filtered = filtered.filter((m) => m.quantityIn > 0);
+    } else if (transactionType === "out") {
+      filtered = filtered.filter((m) => m.quantityOut > 0);
+    }
+
+    // Apply sorting (create a new sorted array)
+    const sorted = [...filtered].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      if (sortBy === "createdAt") {
+        aValue = new Date(a.createdAt).getTime();
+        bValue = new Date(b.createdAt).getTime();
+      } else if (sortBy === "documentNo") {
+        aValue = a.documentNo || "";
+        bValue = b.documentNo || "";
+      } else if (sortBy === "product") {
+        aValue = a.product?.name || "";
+        bValue = b.product?.name || "";
+      } else {
+        aValue = new Date(a.createdAt).getTime();
+        bValue = new Date(b.createdAt).getTime();
+      }
+
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return sortOrder === "asc"
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortOrder === "asc"
+          ? aValue > bValue
+            ? 1
+            : -1
+          : aValue < bValue
+          ? 1
+          : -1;
+      }
+    });
+
+    return sorted;
+  }, [response, productId, transactionType, sortBy, sortOrder]);
+
+  const total = rawMovements.length;
   const pageCount = Math.ceil(total / pageSize) || 1;
+
+  // Apply pagination to filtered results
+  const paginatedMovements = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return rawMovements.slice(start, end);
+  }, [rawMovements, page, pageSize]);
 
   const renderDetails = useCallback((entry: BinCardEntry) => {
     return (
@@ -222,7 +309,7 @@ export default function BinCardPage() {
 
         <DashboardDataTable
           columns={columns}
-          data={rawMovements}
+          data={paginatedMovements}
           loading={isLoading}
           pageIndex={page - 1}
           pageSize={pageSize}
@@ -241,14 +328,18 @@ export default function BinCardPage() {
           detailsTitle={(entry) => entry.documentNo}
           detailsDescription={(entry) => entry.product?.name ?? "N/A"}
           renderDetailsFooter={(entry, onClose) => (
-            <Button onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onClose();
-              setTimeout(() => {
-                setSelectedEntry(null);
-              }, 0);
-            }}>Close</Button>
+            <Button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+                setTimeout(() => {
+                  setSelectedEntry(null);
+                }, 0);
+              }}
+            >
+              Close
+            </Button>
           )}
           headerFilters={
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
@@ -261,10 +352,65 @@ export default function BinCardPage() {
                   setPage(1);
                 }}
               />
+                            <Input
+                type="date"
+                placeholder="Start Date"
+                className="w-full min-w-0 sm:w-40"
+                value={startDate}
+                onChange={(event) => {
+                  setStartDate(event.target.value);
+                  setPage(1);
+                }}
+              />
+              <Input
+                type="date"
+                placeholder="End Date"
+                className="w-full min-w-0 sm:w-40"
+                value={endDate}
+                onChange={(event) => {
+                  setEndDate(event.target.value);
+                  setPage(1);
+                }}
+              />
               <Select
+                value={productId || "__all__"}
+                onValueChange={(value) => {
+                  setProductId(value === "__all__" ? "" : value);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="All Products" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Products</SelectItem>
+                  {allProducts.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={transactionType || "__all__"}
+                onValueChange={(value) => {
+                  setTransactionType(value === "__all__" ? "" : value);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Types</SelectItem>
+                  <SelectItem value="in">Stock In</SelectItem>
+                  <SelectItem value="out">Stock Out</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* <Select
                 value={sortBy}
                 onValueChange={(value) => {
-                  setSortBy(value || "name");
+                  setSortBy(value || "createdAt");
                   setPage(1);
                 }}
               >
@@ -272,15 +418,15 @@ export default function BinCardPage() {
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="createdAt">Created</SelectItem>
-                  <SelectItem value="updatedAt">Updated</SelectItem>
+                  <SelectItem value="createdAt">Date</SelectItem>
+                  <SelectItem value="documentNo">Document No</SelectItem>
+                  <SelectItem value="product">Product</SelectItem>
                 </SelectContent>
-              </Select>
-              <Select
+              </Select> */}
+              {/* <Select
                 value={sortOrder}
                 onValueChange={(value) => {
-                  setSortOrder((value || "asc") as "asc" | "desc");
+                  setSortOrder((value || "desc") as "asc" | "desc");
                   setPage(1);
                 }}
               >
@@ -291,7 +437,7 @@ export default function BinCardPage() {
                   <SelectItem value="asc">Ascending</SelectItem>
                   <SelectItem value="desc">Descending</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select> */}
             </div>
           }
         />

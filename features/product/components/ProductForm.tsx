@@ -25,7 +25,7 @@ import { resolveImageUrl } from '@/lib/utils/image-url';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
-  productCode: z.string().min(1, 'Product code is required'),
+  productCode: z.string().optional(), // Optional - auto-generated if not provided
   genericName: z.string().optional(),
   description: z.string().optional(),
   categoryId: z.string().min(1, 'Category is required'),
@@ -33,7 +33,12 @@ const schema = z.object({
   manufacturerId: z.string().optional(),
   defaultUomId: z.string().optional(),
   purchaseUomId: z.string().optional(),
+  purchasePrice: z.coerce.number().min(0).optional(),
+  sellingPrice: z.coerce.number().min(0).optional(),
+  quantity: z.coerce.number().min(0).optional(),
   minLevel: z.coerce.number().min(0).optional(),
+  maxLevel: z.coerce.number().min(0).optional(),
+  status: z.string().optional(),
 });
 
 interface ProductFormProps {
@@ -58,6 +63,7 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
     defaultUomId: product?.defaultUom?.id ?? '',
     purchaseUomId: product?.purchaseUom?.id ?? '',
     minLevel: product?.minLevel ?? 0,
+    status: product?.status ?? 'ACTIVE',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const allManufacturers = useAllManufacturers();
@@ -175,13 +181,19 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
     try {
       let productId: string;
       
+      // Clean up data: remove empty productCode to allow backend auto-generation
+      const cleanedData = { ...parsed.data };
+      if (cleanedData.productCode === '' || cleanedData.productCode === null || cleanedData.productCode === undefined) {
+        delete cleanedData.productCode;
+      }
+      
       if (product) {
-        const updated = await updateMutation.mutateAsync({ id: product.id, dto: parsed.data });
+        const updated = await updateMutation.mutateAsync({ id: product.id, dto: cleanedData });
         productId = updated.id;
         setCurrentProductId(productId);
         handleApiSuccess('Product updated successfully');
       } else {
-        const created = await createMutation.mutateAsync(parsed.data);
+        const created = await createMutation.mutateAsync(cleanedData);
         productId = created.id;
         setCurrentProductId(productId);
         handleApiSuccess('Product created successfully');
@@ -249,8 +261,8 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
           {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium">Product Code *</label>
-          <Input value={form.productCode} onChange={(e) => setField('productCode', e.target.value)} aria-invalid={Boolean(errors.productCode)} />
+          <label className="block text-sm font-medium">Product Code (optional - auto-generated if empty)</label>
+          <Input value={form.productCode || ''} onChange={(e) => setField('productCode', e.target.value || undefined)} aria-invalid={Boolean(errors.productCode)} />
           {errors.productCode && <p className="text-xs text-red-600">{errors.productCode}</p>}
         </div>
         <div>
@@ -388,6 +400,16 @@ export function ProductForm({ product, onSuccess, onCancel, formId, hideActions,
         <div>
           <label className="block text-sm font-medium">Min Level</label>
           <Input type="number" value={form.minLevel ?? 0} onChange={(e) => setField('minLevel', Number(e.target.value))} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Status</label>
+          <Select value={form.status || 'ACTIVE'} onValueChange={(v) => setField('status', v)}>
+            <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium">Description</label>

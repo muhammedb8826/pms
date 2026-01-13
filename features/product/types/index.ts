@@ -45,7 +45,7 @@ export interface Product {
 
 export interface CreateProductDto {
   name: string;
-  productCode: string;
+  productCode?: string; // Optional - auto-generated if not provided
   genericName?: string;
   description?: string;
   categoryId: string;
@@ -53,7 +53,12 @@ export interface CreateProductDto {
   manufacturerId?: string;
   defaultUomId?: string;
   purchaseUomId?: string;
+  purchasePrice?: number;
+  sellingPrice?: number;
+  quantity?: number;
   minLevel?: number;
+  maxLevel?: number;
+  status?: string;
 }
 
 export type UpdateProductDto = Partial<CreateProductDto>;
