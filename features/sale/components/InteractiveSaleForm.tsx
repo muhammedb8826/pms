@@ -75,6 +75,8 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
   const [paymentMethodId, setPaymentMethodId] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [productPage, setProductPage] = useState(1);
+  const [productsPerPage, setProductsPerPage] = useState(20);
 
   const [createSale] = useCreateSale();
   const allCustomersQuery = useAllCustomers();
@@ -128,6 +130,17 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
         p.manufacturer?.name?.toLowerCase().includes(query)
     );
   }, [products, searchQuery]);
+
+  // Paginate filtered products
+  const paginatedProducts = useMemo(() => {
+    const start = (productPage - 1) * productsPerPage;
+    const end = start + productsPerPage;
+    return filteredProducts.slice(start, end);
+  }, [filteredProducts, productPage, productsPerPage]);
+
+  const totalProductPages = useMemo(() => {
+    return Math.ceil(filteredProducts.length / productsPerPage) || 1;
+  }, [filteredProducts.length, productsPerPage]);
 
   const totalAmount = useMemo(() => {
     const total = cart.reduce((sum, item) => {
@@ -344,9 +357,10 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
       {/* Main Content */}
       <div className="flex-1 flex gap-4 p-4 min-h-0 overflow-hidden">
         {/* Left: Product Grid */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filteredProducts.map((product) => {
+        <div className="flex-1 flex flex-col min-h-0 max-h-full">
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {paginatedProducts.map((product) => {
               const imageUrl = resolveImageUrl(product.image);
               const isInCart = cart.some((item) => item.productId === product.id);
               const isLowStock = (product.quantity || 0) <= (product.minLevel || 0);
@@ -428,14 +442,62 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
                 </Card>
               );
             })}
+            </div>
+            {filteredProducts.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <IconSearch className="size-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium">No products found</p>
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery ? 'Try a different search term' : 'No products available'}
+                </p>
+              </div>
+            )}
           </div>
-          {filteredProducts.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <IconSearch className="size-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium">No products found</p>
-              <p className="text-sm text-muted-foreground">
-                {searchQuery ? 'Try a different search term' : 'No products available'}
-              </p>
+          
+          {/* Pagination Controls */}
+          {filteredProducts.length > productsPerPage && (
+            <div className="flex-shrink-0 flex items-center justify-between gap-4 p-4 border-t bg-background">
+              <div className="text-sm text-muted-foreground">
+                Showing {(productPage - 1) * productsPerPage + 1} to {Math.min(productPage * productsPerPage, filteredProducts.length)} of {filteredProducts.length} products
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+                  disabled={productPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {productPage} of {totalProductPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
+                  disabled={productPage >= totalProductPages}
+                >
+                  Next
+                </Button>
+              </div>
+              <Select
+                value={String(productsPerPage)}
+                onValueChange={(v) => {
+                  setProductsPerPage(Number(v));
+                  setProductPage(1);
+                }}
+              >
+                <SelectTrigger className="w-24 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="12">12</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="40">40</SelectItem>
+                  <SelectItem value="60">60</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
@@ -443,14 +505,14 @@ export function InteractiveSaleForm({ onSuccess, onCancel }: InteractiveSaleForm
         {/* Right: Cart and Checkout */}
         <div className="w-[500px] flex flex-col gap-4 flex-shrink-0">
           {/* Cart */}
-          <Card className="flex-1 flex flex-col min-h-0">
+          <Card className="flex flex-col" style={{ height: '400px' }}>
             <div className="p-4 border-b flex-shrink-0">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <IconShoppingCart className="size-5" />
                 Cart ({cart.length})
               </h2>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 min-h-0">
               {cart.length > 0 ? (
                 <div className="space-y-3">
                   {cart.map((item, index) => (

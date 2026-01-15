@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import type { ErrorResponse } from '@/types/api-response';
 import { ErrorCode, extractErrorMessage as extractFromResponse, extractErrorCode } from '@/types/api-response';
+import { isPermissionError, shouldSuppressPermissionErrorToast, getPermissionErrorMessage } from '@/lib/utils/permission-errors';
 
 /**
  * RTK Query error structure
@@ -226,9 +227,10 @@ export function handleApiError(
     defaultMessage?: string;
     showToast?: boolean;
     logError?: boolean;
+    isMutation?: boolean; // Set to true for POST/PATCH/DELETE, false for GET queries
   }
 ): string {
-  const { defaultMessage = 'Operation failed', showToast = true, logError = true } = options || {};
+  const { defaultMessage = 'Operation failed', showToast = true, logError = true, isMutation = false } = options || {};
 
         if (logError) {
           try {
@@ -286,6 +288,25 @@ export function handleApiError(
             console.error('Original error (fallback):', err);
           }
         }
+
+  // Handle permission errors specially
+  if (isPermissionError(err)) {
+    const permissionMessage = getPermissionErrorMessage(
+      typeof err === 'object' && err !== null && 'data' in err
+        ? (err as { data?: { path?: string } }).data?.path
+        : undefined
+    );
+
+    // Suppress toast for queries (GET requests) - let components show empty states
+    // Show toast for mutations (POST/PATCH/DELETE) so user knows action failed
+    const shouldSuppress = shouldSuppressPermissionErrorToast(err, isMutation);
+    
+    if (showToast && !shouldSuppress && permissionMessage) {
+      toast.error(permissionMessage);
+    }
+
+    return permissionMessage;
+  }
 
   const errorMessage = err ? extractErrorMessage(err) : defaultMessage;
 

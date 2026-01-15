@@ -4,15 +4,25 @@ import React from 'react';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import type { AuthRole } from '@/features/auth/types';
+import { useHasPermission } from '@/hooks/useHasPermission';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRoles?: AuthRole[];
+  requiredPermission?: string | string[];
+  requireAllPermissions?: boolean;
 }
 
-export default function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
+export default function ProtectedRoute({ 
+  children, 
+  requiredRoles,
+  requiredPermission,
+  requireAllPermissions = false,
+}: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const hasPermission = useHasPermission(requiredPermission || [], requireAllPermissions);
+  
   const userRoles = React.useMemo(() => {
     if (!user || !user.role) return [];
     // Backend returns single role, convert to array for compatibility
@@ -30,14 +40,28 @@ export default function ProtectedRoute({ children, requiredRoles }: ProtectedRou
         }
       }
       router.push('/login');
+      return;
     }
-    if (user && requiredRoles && requiredRoles.length > 0) {
-      const hasAccess = requiredRoles.some((role) => userRoles.includes(role));
-      if (!hasAccess) {
-        router.push('/unauthorized');
+    
+    if (user) {
+      // Check role-based access
+      if (requiredRoles && requiredRoles.length > 0) {
+        const hasRoleAccess = requiredRoles.some((role) => userRoles.includes(role));
+        if (!hasRoleAccess) {
+          router.push('/unauthorized');
+          return;
+        }
+      }
+      
+      // Check permission-based access (admins bypass permission checks)
+      if (requiredPermission && user.role !== 'ADMIN') {
+        if (!hasPermission) {
+          router.push('/unauthorized');
+          return;
+        }
       }
     }
-  }, [user, isLoading, requiredRoles, userRoles, router]);
+  }, [user, isLoading, requiredRoles, userRoles, requiredPermission, hasPermission, router]);
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -47,9 +71,17 @@ export default function ProtectedRoute({ children, requiredRoles }: ProtectedRou
     return null;
   }
 
+  // Check role-based access
   if (requiredRoles && requiredRoles.length > 0) {
-    const hasAccess = requiredRoles.some((role) => userRoles.includes(role));
-    if (!hasAccess) {
+    const hasRoleAccess = requiredRoles.some((role) => userRoles.includes(role));
+    if (!hasRoleAccess) {
+      return <div>Unauthorized</div>;
+    }
+  }
+
+  // Check permission-based access (admins bypass permission checks)
+  if (requiredPermission && user.role !== 'ADMIN') {
+    if (!hasPermission) {
       return <div>Unauthorized</div>;
     }
   }

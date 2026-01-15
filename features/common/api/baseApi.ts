@@ -134,6 +134,21 @@ const baseQuery: BaseQueryFn<
     };
   }
 
+  // Handle 403 Forbidden (Permission errors) - don't show noisy toasts for queries
+  // Permission errors are expected when users don't have access, so we handle them gracefully
+  if (result.error && result.error.status === 403) {
+    // For GET requests (queries), we'll let the component handle the empty state
+    // For mutations (POST/PATCH/DELETE), the error will be handled in the component
+    const isQuery = typeof args === 'string' 
+      ? args.includes('GET') || !args.includes('POST') && !args.includes('PATCH') && !args.includes('DELETE')
+      : !args.method || args.method === 'GET';
+    
+    // Mark permission errors so components can handle them appropriately
+    if (result.error.data && typeof result.error.data === 'object') {
+      (result.error.data as { isPermissionError?: boolean }).isPermissionError = true;
+    }
+  }
+
   // Ensure error responses (like 403) have properly formatted error data
   if (result.error && result.error.data) {
     const errorData = result.error.data;
