@@ -85,6 +85,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('tokens');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      
+      // Dispatch event to clear RTK Query cache
+      // This will be handled by a component that has access to Redux store
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+      }
     }
   };
 

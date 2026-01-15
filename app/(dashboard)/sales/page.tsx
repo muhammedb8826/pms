@@ -306,7 +306,11 @@ export default function SalesPage() {
                   <DropdownMenuItem
                     onSelect={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
                       setConfirmDeleteId(sale.id);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                     }}
                     className="text-destructive focus:text-destructive"
                   >

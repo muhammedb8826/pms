@@ -14,14 +14,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -30,7 +22,6 @@ import {
 } from "@/components/ui/select";
 
 export default function BinCardPage() {
-  const [selectedEntry, setSelectedEntry] = useState<BinCardEntry | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
@@ -249,12 +240,9 @@ export default function BinCardPage() {
         header: "Doc No",
         accessorKey: "documentNo",
         cell: ({ row }) => (
-          <button
-            onClick={() => setSelectedEntry(row.original)}
-            className="font-medium text-primary hover:underline"
-          >
+          <span className="font-medium text-primary">
             {row.original.documentNo}
-          </button>
+          </span>
         ),
       },
       {
@@ -289,7 +277,7 @@ export default function BinCardPage() {
         accessorKey: "entityName",
       },
     ],
-    [setSelectedEntry]
+    []
   );
 
   return (
@@ -327,20 +315,6 @@ export default function BinCardPage() {
           renderDetails={renderDetails}
           detailsTitle={(entry) => entry.documentNo}
           detailsDescription={(entry) => entry.product?.name ?? "N/A"}
-          renderDetailsFooter={(entry, onClose) => (
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onClose();
-                setTimeout(() => {
-                  setSelectedEntry(null);
-                }, 0);
-              }}
-            >
-              Close
-            </Button>
-          )}
           headerFilters={
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Input
@@ -442,21 +416,6 @@ export default function BinCardPage() {
           }
         />
       </div>
-
-      {/* Sheet moved outside of DataTable props for cleaner syntax */}
-      <Sheet open={!!selectedEntry} onOpenChange={() => setSelectedEntry(null)}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Transaction Details</SheetTitle>
-            <SheetDescription>
-              Full audit log for entry {selectedEntry?.documentNo}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6">
-            {selectedEntry && renderDetails(selectedEntry)}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
