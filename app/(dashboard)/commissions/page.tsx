@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   IconDotsVertical,
@@ -73,7 +72,7 @@ const getStatusBadgeVariant = (status: CommissionStatus) => {
 };
 
 export default function CommissionsPage() {
-  const router = useRouter();
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState<CommissionStatus | "all">("all");

@@ -31,7 +31,7 @@ export function PermissionGuard({
   if (showError) {
     return (
       <div className="p-4 text-sm text-muted-foreground">
-        You don't have permission to access this content.
+        You don&apos;t have permission to access this content.
       </div>
     );
   }

@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { IconArrowLeft, IconPrinter } from "@tabler/icons-react";

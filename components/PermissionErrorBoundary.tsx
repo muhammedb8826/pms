@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { useHasPermission } from '@/hooks/useHasPermission';
-import { PERMISSIONS } from '@/lib/constants/permissions';
+
 
 interface PermissionErrorBoundaryProps {
   children: ReactNode;

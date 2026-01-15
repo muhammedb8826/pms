@@ -96,9 +96,15 @@ export function NotificationDropdown({
   );
   const unreadCount = notificationsData?.unreadCount || 0;
   const loading = useExternalData ? externalLoading ?? false : isLoading;
-  const effectiveRefetch = useExternalData
-    ? externalRefetch ?? (() => Promise.resolve())
-    : refetch;
+  const effectiveRefetch = useCallback(
+    () => {
+      if (useExternalData) {
+        return externalRefetch?.() ?? Promise.resolve();
+      }
+      return refetch();
+    },
+    [useExternalData, externalRefetch, refetch],
+  );
 
   // Refresh notifications when dropdown opens
   useEffect(() => {
@@ -122,7 +128,7 @@ export function NotificationDropdown({
         handleApiError(err, { defaultMessage: 'Failed to mark notification as read' });
       }
     },
-    [markAsReadMutation, refetch],
+    [markAsReadMutation, effectiveRefetch],
   );
 
   const handleMarkAllAsRead = useCallback(
@@ -136,7 +142,7 @@ export function NotificationDropdown({
         handleApiError(err, { defaultMessage: 'Failed to mark all as read' });
       }
     },
-    [markAllAsReadMutation, refetch],
+    [markAllAsReadMutation, effectiveRefetch],
   );
 
   const handleDelete = useCallback(
@@ -150,7 +156,7 @@ export function NotificationDropdown({
         handleApiError(err, { defaultMessage: 'Failed to delete notification' });
       }
     },
-    [deleteMutation, refetch],
+    [deleteMutation, effectiveRefetch],
   );
 
   const handleDeleteAllRead = useCallback(
@@ -164,7 +170,7 @@ export function NotificationDropdown({
         handleApiError(err, { defaultMessage: 'Failed to delete read notifications' });
       }
     },
-    [deleteAllReadMutation, refetch],
+    [deleteAllReadMutation, effectiveRefetch],
   );
 
   const handleNotificationClick = useCallback(
