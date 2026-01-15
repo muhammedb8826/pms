@@ -56,16 +56,21 @@ export function getPermissionErrorMessage(endpoint?: string): string {
 /**
  * Check if we should suppress error toast for permission errors
  * Generally, we suppress toasts for GET requests (queries) but show them for mutations
+ * 
+ * Note: Since we can't reliably detect HTTP method from error object,
+ * we default to showing toasts (treating as mutation) unless explicitly told it's a query.
+ * Pass isMutation: false to suppress toast for queries.
  */
 export function shouldSuppressPermissionErrorToast(
   error: unknown,
-  isMutation: boolean = false
+  isMutation: boolean | undefined = undefined
 ): boolean {
   if (!isPermissionError(error)) {
     return false;
   }
 
-  // For queries (GET requests), suppress the toast - let the component show empty state
-  // For mutations (POST/PATCH/DELETE), show the toast so user knows the action failed
-  return !isMutation;
+  // If isMutation is explicitly false, it's a query - suppress toast
+  // If isMutation is true or undefined (default), it's likely a mutation - show toast
+  // Default behavior: show toast (assume mutation) unless explicitly told it's a query
+  return isMutation === false;
 }

@@ -227,65 +227,187 @@ export function handleApiError(
     defaultMessage?: string;
     showToast?: boolean;
     logError?: boolean;
-    isMutation?: boolean; // Set to true for POST/PATCH/DELETE, false for GET queries
+    isMutation?: boolean; // Set to false for GET queries to suppress permission error toasts, undefined/true for mutations (default: show toast)
   }
 ): string {
-  const { defaultMessage = 'Operation failed', showToast = true, logError = true, isMutation = false } = options || {};
+  const { defaultMessage = 'Operation failed', showToast = true, logError = true, isMutation } = options || {};
 
         if (logError) {
           try {
             if (err === null || err === undefined) {
               console.error('API Error: null or undefined');
             } else if (typeof err === 'object' && err !== null) {
-              const errorObj = err as RTKQueryError;
+              const errorObj = err as RTKQueryError & Record<string, unknown>;
               
-              // Simplified logging - just log the key fields directly
+              // Build comprehensive log data
               const logData: Record<string, unknown> = {};
               
+              // Check if the error object itself is the response data (has success, message, etc.)
+              const isResponseData = 'success' in errorObj || ('message' in errorObj && 'error' in errorObj);
+              
+              // Check for status in multiple possible locations
               if (typeof errorObj.status === 'number') {
                 logData.status = errorObj.status;
+              } else if ('statusCode' in errorObj && typeof errorObj.statusCode === 'number') {
+                logData.status = errorObj.statusCode;
               }
               
+              // Include message from error object
               if (typeof errorObj.message === 'string' && errorObj.message.trim().length > 0) {
                 logData.message = errorObj.message;
               }
               
-              // Log error.data if it exists and has content
+              // If the error object itself is the response data, extract from it directly
+              if (isResponseData) {
+                const responseData = errorObj as Record<string, unknown>;
+                
+                if ('message' in responseData) {
+                  const msg = responseData.message;
+                  if (typeof msg === 'string' && msg.trim().length > 0) {
+                    logData.errorMessage = msg;
+                  } else if (msg !== null && msg !== undefined) {
+                    logData.errorMessage = String(msg);
+                  }
+                }
+                
+                if ('error' in responseData && typeof responseData.error === 'object' && responseData.error !== null) {
+                  const errorInfo = responseData.error as Record<string, unknown>;
+                  if ('code' in errorInfo) {
+                    logData.errorCode = errorInfo.code;
+                  }
+                  if ('details' in errorInfo) {
+                    logData.errorDetails = errorInfo.details;
+                  }
+                }
+                
+                if ('path' in responseData) {
+                  logData.path = responseData.path;
+                }
+                
+                if ('timestamp' in responseData) {
+                  logData.timestamp = responseData.timestamp;
+                }
+                
+                if ('success' in responseData) {
+                  logData.success = responseData.success;
+                }
+              }
+              
+              // Log error.data if it exists - this is where RTK Query puts the response body
               if (errorObj.data !== undefined && errorObj.data !== null) {
-                // If data is an object, try to extract message first
                 if (typeof errorObj.data === 'object') {
                   const dataObj = errorObj.data as Record<string, unknown>;
                   
-                  // Extract message if present
-                  if ('message' in dataObj && typeof dataObj.message === 'string' && dataObj.message.trim().length > 0) {
-                    logData.errorMessage = dataObj.message;
+                  // Extract message from data if present
+                  if ('message' in dataObj) {
+                    const msg = dataObj.message;
+                    if (typeof msg === 'string' && msg.trim().length > 0) {
+                      logData.errorMessage = msg;
+                    } else if (msg !== null && msg !== undefined) {
+                      logData.errorMessage = String(msg);
+                    }
                   }
                   
-                  // If data has meaningful content, include it
-                  const dataKeys = Object.keys(dataObj);
-                  if (dataKeys.length > 0) {
-                    logData.data = errorObj.data;
+                  // Extract error code if present
+                  if ('error' in dataObj && typeof dataObj.error === 'object' && dataObj.error !== null) {
+                    const errorInfo = dataObj.error as Record<string, unknown>;
+                    if ('code' in errorInfo) {
+                      logData.errorCode = errorInfo.code;
+                    }
+                    if ('details' in errorInfo) {
+                      logData.errorDetails = errorInfo.details;
+                    }
                   }
+                  
+                  // Include path if present
+                  if ('path' in dataObj) {
+                    logData.path = dataObj.path;
+                  }
+                  
+                  // Include timestamp if present
+                  if ('timestamp' in dataObj) {
+                    logData.timestamp = dataObj.timestamp;
+                  }
+                  
+                  // Include success flag if present
+                  if ('success' in dataObj) {
+                    logData.success = dataObj.success;
+                  }
+                  
+                  // Include full data object for debugging
+                  logData.data = errorObj.data;
                 } else {
                   // Non-object data
                   logData.data = errorObj.data;
                 }
               }
               
-              // Only log if we have at least one meaningful field
+              // Include all other properties from the error object (except ones we've already handled)
+              const errorKeys = Object.keys(errorObj);
+              for (const key of errorKeys) {
+                if (!['status', 'statusCode', 'message', 'data'].includes(key)) {
+                  const value = errorObj[key];
+                  // Only include if it's not undefined
+                  if (value !== undefined) {
+                    logData[key] = value;
+                  }
+                }
+              }
+              
+              // Always log - if logData is empty, log the raw error structure for debugging
               if (Object.keys(logData).length > 0) {
                 console.error('API Error:', logData);
               } else {
-                // Fallback: log the original error structure
-                console.error('API Error:', err);
+                // Fallback: log the original error structure for debugging
+                console.error('API Error (raw - no data extracted):');
+                console.error('  Error type:', typeof err);
+                console.error('  Error keys:', Object.keys(err as Record<string, unknown>));
+                console.error('  Has status:', 'status' in err);
+                console.error('  Has data:', 'data' in err);
+                console.error('  Status value:', (err as Record<string, unknown>).status);
+                console.error('  Data value:', (err as Record<string, unknown>).data);
+                console.error('  Full error object:', err);
+                
+                // Try to stringify for better readability
+                try {
+                  const seen = new WeakSet();
+                  const stringified = JSON.stringify(err, (key, value) => {
+                    if (typeof value === 'object' && value !== null) {
+                      if (seen.has(value)) {
+                        return '[Circular]';
+                      }
+                      seen.add(value);
+                    }
+                    return value;
+                  }, 2);
+                  console.error('  Stringified error:', stringified);
+                } catch (stringifyErr) {
+                  console.error('  Could not stringify error:', stringifyErr);
+                }
               }
             } else {
+              // Primitive error value
               console.error('API Error:', err);
             }
           } catch (logErr) {
             // Fallback if logging itself fails
             console.error('API Error: [Unable to log error details]', logErr);
             console.error('Original error (fallback):', err);
+            // Try to stringify if possible
+            try {
+              const seen = new WeakSet();
+              console.error('Original error (stringified):', JSON.stringify(err, (key, value) => {
+                if (typeof value === 'object' && value !== null) {
+                  if (seen.has(value)) {
+                    return '[Circular]';
+                  }
+                  seen.add(value);
+                }
+                return value;
+              }, 2));
+            } catch {
+              // Ignore stringify errors
+            }
           }
         }
 
@@ -299,12 +421,15 @@ export function handleApiError(
 
     // Suppress toast for queries (GET requests) - let components show empty states
     // Show toast for mutations (POST/PATCH/DELETE) so user knows action failed
+    // Default to showing toast (assume mutation) unless explicitly told it's a query
     const shouldSuppress = shouldSuppressPermissionErrorToast(err, isMutation);
     
     if (showToast && !shouldSuppress && permissionMessage) {
       toast.error(permissionMessage);
+      return permissionMessage;
     }
-
+    
+    // If toast was suppressed, still return the message for component use
     return permissionMessage;
   }
 

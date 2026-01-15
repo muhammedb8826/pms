@@ -198,7 +198,7 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
   const { settings } = usePharmacySettings()
-  const { codes: permissionCodes, isLoaded: permissionsLoaded } = useCurrentUserPermissions()
+  const { codes: permissionCodes, isLoaded: permissionsLoaded, isLoading: permissionsLoading, error: permissionsError } = useCurrentUserPermissions()
   const isAdmin = user?.role === "ADMIN"
 
   const logoSrc = React.useMemo(() => {
@@ -221,14 +221,42 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     (required: string | string[]) => {
       if (isAdmin) return true
       const list = Array.isArray(required) ? required : [required]
-      return list.some((code) => {
+      const result = list.some((code) => {
         const lower = code.toLowerCase()
         const alt = lower.replace(".", "_")
-        return normalizedPermissions.has(lower) || normalizedPermissions.has(alt)
+        const hasLower = normalizedPermissions.has(lower)
+        const hasAlt = normalizedPermissions.has(alt)
+        if (hasLower || hasAlt) {
+          console.log(`[Sidebar] Permission match: "${code}" (checked: "${lower}", "${alt}")`)
+        }
+        return hasLower || hasAlt
       })
+      if (!result) {
+        console.log(`[Sidebar] No permission match for:`, list, 'User has:', Array.from(normalizedPermissions))
+      }
+      return result
     },
     [isAdmin, normalizedPermissions]
   )
+
+  // Debug logging (remove in production)
+  React.useEffect(() => {
+    if (user) {
+      console.log('[Sidebar] User:', user.role, user.email)
+      console.log('[Sidebar] Permissions loading:', permissionsLoading)
+      console.log('[Sidebar] Permissions loaded:', permissionsLoaded)
+      console.log('[Sidebar] Permission codes (raw):', permissionCodes)
+      console.log('[Sidebar] Normalized permissions:', Array.from(normalizedPermissions))
+      console.log('[Sidebar] Is Admin:', isAdmin)
+      if (permissionsError) {
+        console.error('[Sidebar] Permission fetch error:', permissionsError)
+      }
+      if (permissionsLoaded) {
+        console.log('[Sidebar] Testing Sales permission:', hasPermission(["sales.read", "sales.create", "sales.update", "sales.delete"]))
+        console.log('[Sidebar] Testing Dashboard permission:', hasPermission(["dashboard.view"]))
+      }
+    }
+  }, [permissionsLoaded, permissionsLoading, permissionCodes, normalizedPermissions, user, isAdmin, permissionsError, hasPermission])
 
   // Helper to build grouped nav items for NavMain while preserving permission filtering.
   const buildNavMainItems = React.useCallback(
@@ -327,8 +355,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   )
 
   const navMain = React.useMemo(() => {
-    // If permissions couldn't be loaded, show minimal safe navigation
-    if (!permissionsLoaded) {
+    // If permissions are still loading, show minimal safe navigation
+    if (permissionsLoading || !permissionsLoaded) {
       const minimal = data.navMain.filter((item) => {
         // Show Dashboard and items without permissions requirement
         if (item.title === "Dashboard") return true
@@ -340,20 +368,45 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       return buildNavMainItems(minimal)
     }
 
+    // If there was an error fetching permissions, show minimal navigation
+    if (permissionsError) {
+      console.warn('[Sidebar] Error fetching permissions, showing minimal navigation')
+      const minimal = data.navMain.filter((item) => {
+        if (item.title === "Dashboard") return true
+        if (!item.permissions || item.permissions.length === 0) return true
+        return false
+      })
+      return buildNavMainItems(minimal)
+    }
+
     // Filter items based on their permissions array
     // Empty permissions array means always visible
     const allowed = data.navMain.filter((item) => {
       if (!item.permissions || item.permissions.length === 0) return true
-      return hasPermission(item.permissions)
+      const hasAccess = hasPermission(item.permissions)
+      if (!hasAccess) {
+        console.log(`[Sidebar] Hiding "${item.title}" - missing permissions:`, item.permissions)
+      }
+      return hasAccess
     })
+    
+    console.log('[Sidebar] Allowed nav items:', allowed.map(i => i.title))
     return buildNavMainItems(allowed)
-  }, [permissionsLoaded, permissionCodes, user?.id, hasPermission, buildNavMainItems])
+  }, [permissionsLoaded, permissionsLoading, permissionsError, hasPermission, buildNavMainItems])
 
   const navSecondary = React.useMemo(() => {
-    // If permissions couldn't be loaded, show minimal safe navigation
-    if (!permissionsLoaded) {
+    // If permissions are still loading, show minimal safe navigation
+    if (permissionsLoading || !permissionsLoaded) {
       return data.navSecondary.filter((item) => {
         // Show items without permissions requirement
+        if (!item.permissions || item.permissions.length === 0) return true
+        return false
+      })
+    }
+
+    // If there was an error fetching permissions, show minimal navigation
+    if (permissionsError) {
+      return data.navSecondary.filter((item) => {
         if (!item.permissions || item.permissions.length === 0) return true
         return false
       })
@@ -365,11 +418,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       if (!item.permissions || item.permissions.length === 0) return true
       return hasPermission(item.permissions)
     })
-  }, [permissionsLoaded, hasPermission])
+  }, [permissionsLoaded, permissionsLoading, permissionsError, hasPermission])
 
   const documents = React.useMemo(() => {
-    // If permissions couldn't be loaded, hide reports
-    if (!permissionsLoaded) {
+    // If permissions are still loading or there was an error, hide reports
+    if (permissionsLoading || !permissionsLoaded || permissionsError) {
       return []
     }
 
@@ -378,7 +431,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       if (!doc.permissions || doc.permissions.length === 0) return true
       return hasPermission(doc.permissions)
     })
-  }, [permissionsLoaded, hasPermission])
+  }, [permissionsLoaded, permissionsLoading, permissionsError, hasPermission])
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
